@@ -43,9 +43,13 @@ const RelationshipsTab = lazy(async () => ({
 const LineageTab = lazy(async () => ({
   default: (await import("./components/LineageTab")).LineageTab,
 }));
+const ShowcaseTab = lazy(async () => ({
+  default: (await import("./components/ShowcaseTab")).ShowcaseTab,
+}));
 
 
 const viewTabs = [
+  { label: "Showcase", value: "showcase" },
   { label: "Overview", value: "overview" },
   { label: "Rounds", value: "rounds" },
   { label: "Relationships", value: "relationships" },
@@ -63,7 +67,7 @@ interface ToastState {
 
 export function App() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<ViewTab>("overview");
+  const [activeTab, setActiveTab] = useState<ViewTab>("showcase");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedExperimentId, setSelectedExperimentId] = useState<number | null>(
     null,
@@ -142,6 +146,7 @@ export function App() {
     onSuccess: async (experiment) => {
       setSelectedExperimentId(experiment.id);
       setSelectedGenerationId(null);
+      setActiveTab("showcase");
       setDialogOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["experiments"] });
       setToast({ isError: false, message: "Experiment created." });
@@ -226,7 +231,7 @@ export function App() {
   function selectExperiment(experimentId: number) {
     setSelectedExperimentId(experimentId);
     setSelectedGenerationId(null);
-    setActiveTab("overview");
+    setActiveTab("showcase");
   }
 
   return (
@@ -397,6 +402,17 @@ function ExperimentView({
             </Tabs.Trigger>
           ))}
         </Tabs.List>
+        <Tabs.Content value="showcase">
+          <Suspense fallback={<TabLoading />}>
+            <ShowcaseTab
+              agentName={agentName}
+              analysis={analysis}
+              experiment={experiment}
+              generations={generations}
+              onTabChange={onTabChange}
+            />
+          </Suspense>
+        </Tabs.Content>
         <Tabs.Content value="overview">
           <Suspense fallback={<TabLoading />}>
             <OverviewTab

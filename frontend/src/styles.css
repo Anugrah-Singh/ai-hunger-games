@@ -979,6 +979,266 @@ input {
   background: var(--surface);
 }
 
+.recruiter-overview {
+  padding-top: 22px;
+}
+
+.showcase-hero {
+  position: relative;
+  isolation: isolate;
+  min-height: 390px;
+  overflow: hidden;
+  padding: 38px;
+  border: 1px solid #315949;
+  background: #163128;
+  color: #f7fbf8;
+}
+
+.showcase-hero-mark {
+  position: absolute;
+  z-index: -1;
+  top: 34px;
+  right: 38px;
+  width: 220px;
+  height: 220px;
+  border: 1px solid #74ad9b;
+  border-radius: 8px;
+  opacity: 0.16;
+  object-fit: cover;
+}
+
+.showcase-hero-content {
+  max-width: 780px;
+}
+
+.showcase-hero .rt-Badge {
+  width: fit-content;
+}
+
+.showcase-kicker {
+  margin-top: 14px;
+  color: #9acabd;
+  font-size: 12px;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.showcase-hero h1 {
+  max-width: 620px;
+  margin-top: 8px;
+  color: #ffffff;
+  font-size: 44px;
+  font-weight: 760;
+  line-height: 1.05;
+}
+
+.showcase-lede {
+  max-width: 700px;
+  margin-top: 14px;
+  color: #d8e8de;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.showcase-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.showcase-evidence-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 30px 0 0;
+  background: #416b5a;
+}
+
+.showcase-evidence-strip > div {
+  min-width: 0;
+  padding: 10px 12px;
+  background: #1d3d32;
+}
+
+.showcase-evidence-strip dt {
+  color: #a8c8b9;
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.showcase-evidence-strip dd {
+  margin: 4px 0 0;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 680;
+  overflow-wrap: anywhere;
+}
+
+.showcase-section {
+  min-width: 0;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-strong);
+}
+
+.showcase-section-heading {
+  display: flex;
+  min-height: 34px;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.showcase-section-heading > svg {
+  flex: 0 0 auto;
+  color: var(--teal);
+}
+
+.showcase-section-heading h2 {
+  margin-top: 3px;
+  font-size: 18px;
+}
+
+.showcase-proof-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.showcase-proof-rail li {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+}
+
+.showcase-flow {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  margin: 16px 0 0;
+  padding: 1px;
+  background: var(--line);
+  list-style: none;
+}
+
+.showcase-flow li {
+  position: relative;
+  min-width: 0;
+  min-height: 176px;
+  padding: 14px 12px 14px;
+  background: var(--surface);
+}
+
+.showcase-stage-number {
+  display: block;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+
+.showcase-stage-icon,
+.showcase-decision-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid #89bab2;
+  background: var(--teal-pale);
+  color: #135951;
+}
+
+.showcase-stage-icon {
+  margin-top: 14px;
+}
+
+.showcase-flow h3 {
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.showcase-flow p,
+.showcase-decision p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.showcase-outcome-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.showcase-outcome-card {
+  min-width: 0;
+  border-top: 3px solid var(--teal);
+  overflow-wrap: anywhere;
+}
+
+.showcase-outcome-card .showcase-section-heading {
+  margin-bottom: 10px;
+}
+
+.showcase-data-list {
+  font-size: 13px;
+}
+
+.showcase-caution {
+  align-self: stretch;
+  overflow-wrap: anywhere;
+}
+
+.showcase-decisions {
+  margin-top: 24px;
+}
+
+.showcase-decision-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px 20px;
+  margin-top: 16px;
+}
+
+.showcase-decision {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+}
+
+.showcase-decision h3 {
+  padding-top: 2px;
+  font-size: 14px;
+}
+
+.showcase-next-steps {
+  padding-bottom: 4px;
+}
+
+.showcase-paths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.showcase-paths .rt-BaseButton {
+  justify-content: space-between;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1010,6 +1270,14 @@ input {
 
   .chart-shell {
     height: 240px;
+  }
+
+  .showcase-flow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .showcase-outcome-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1117,8 +1385,98 @@ input {
 
   .view-tabs {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0;
     overflow: visible;
+  }
+
+  .recruiter-overview {
+    padding-top: 16px;
+  }
+
+  .showcase-hero {
+    min-height: 0;
+    padding: 24px;
+  }
+
+  .showcase-hero-mark {
+    top: 24px;
+    right: -38px;
+    width: 150px;
+    height: 150px;
+  }
+
+  .showcase-hero h1 {
+    max-width: 270px;
+    font-size: 34px;
+  }
+
+  .showcase-lede {
+    max-width: 340px;
+    font-size: 14px;
+  }
+
+  .showcase-hero-actions,
+  .showcase-paths {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .showcase-hero-actions .rt-BaseButton,
+  .showcase-paths .rt-BaseButton {
+    width: 100%;
+  }
+
+  .showcase-evidence-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 24px;
+  }
+
+  .showcase-section {
+    margin-top: 20px;
+  }
+
+  .showcase-section-heading h2 {
+    font-size: 16px;
+  }
+
+  .showcase-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .showcase-flow li {
+    display: grid;
+    min-height: 0;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 0 10px;
+    padding: 13px 12px;
+  }
+
+  .showcase-stage-number {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .showcase-stage-icon {
+    grid-column: 1;
+    grid-row: 2;
+    margin-top: 8px;
+  }
+
+  .showcase-flow li > div {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .showcase-flow h3 {
+    margin-top: 0;
+  }
+
+  .showcase-decision-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .showcase-data-list {
+    font-size: 12px;
   }
 }
