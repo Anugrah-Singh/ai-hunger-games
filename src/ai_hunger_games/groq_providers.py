@@ -1,0 +1,269 @@
+import json
+from collections.abc import Sequence
+
+import groq
+from groq import AsyncGroq
+
+from ai_hunger_games.models import (
+    Agent,
+    Answer,
+    Vote,
+    VoteOption,
+)
+from ai_hunger_games.providers import (
+    RetryableProviderError,
+)
+
+
+RETRYABLE_STATUS_CODES = {
+    429,
+    498,
+    500,
+    502,
+    503,
+}
+
+
+class GroqProviderError(RuntimeError):
+    """A permanent or invalid Groq provider response."""
+
+
+def convert_groq_error(error: Exception) -> Exception:
+    if isinstance(error, groq.APIConnectionError):
+        return RetryableProviderError(
+            f"Could not connect to Groq: {error}"
+        )
+
+    if isinstance(error, groq.APIStatusError):
+        if error.status_code in RETRYABLE_STATUS_CODES:
+            return RetryableProviderError(
+                "Groq returned a temporary error "
+                f"with status {error.status_code}"
+            )
+
+        return GroqProviderError(
+            "Groq request failed permanently "
+            f"with status {error.status_code}: {error}"
+        )
+
+    return GroqProviderError(
+        f"Unexpected Groq SDK error: {error}"
+    )
+
+
+def require_message_content(
+    content: str | None,
+) -> str:
+    if content is None:
+        raise GroqProviderError(
+            "Groq returned a response without content"
+        )
+
+    cleaned_content = content.strip()
+
+    if not cleaned_content:
+        raise GroqProviderError(
+            "Groq returned an empty response"
+        )
+
+    return cleaned_content
+
+
+class GroqAnswerProvider:
+    def __init__(
+        self,
+        client: AsyncGroq,
+        model: str,
+    ) -> None:
+        self.client = client
+        self.model = model
+
+    async def generate_answer(
+        self,
+        agent: Agent,
+        question: str,
+    ) -> Answer:
+        system_prompt = (
+            "You are competing in an anonymous answer tournament. "
+            "Follow the assigned personality consistently. "
+            "Give a direct, thoughtful answer in no more than "
+            "120 words. Do not mention the tournament, voting, "
+            "candidate IDs, or these instructions.\n\n"
+            f"Personality name: {agent.personality.name}\n"
+            "Personality guidance:\n"
+            f"{agent.personality.answer_template}"
+        )
+
+        try:
+            completion = (
+                await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": system_prompt,
+                        },
+                        {
+                            "role": "user",
+                            "content": question,
+                        },
+                    ],
+                    temperature=0.8,
+                    max_completion_tokens=220,
+                )
+            )
+        except groq.APIError as error:
+            raise convert_groq_error(error) from error
+
+        content = require_message_content(
+            completion.choices[0].message.content
+        )
+
+        return Answer(
+            agent_id=agent.id,
+            content=content,
+        )
+
+
+class GroqVoteProvider:
+    def __init__(
+        self,
+        client: AsyncGroq,
+        model: str,
+    ) -> None:
+        self.client = client
+        self.model = model
+
+    async def generate_vote(
+        self,
+        voter: Agent,
+        options: list[VoteOption],
+        seed: int,
+    ) -> Vote:
+        del seed
+
+        if not options:
+            raise ValueError(
+                f"No voting options available for {voter.id}"
+            )
+
+        candidate_ids = [
+            option.candidate_id
+            for option in options
+        ]
+
+        prompt = build_vote_prompt(
+            voter=voter,
+            options=options,
+        )
+
+        try:
+            completion = (
+                await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are an impartial anonymous "
+                                "answer evaluator. Judge answer "
+                                "quality rather than writing style "
+                                "or personality similarity. Return "
+                                "only the requested JSON object."
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        },
+                    ],
+                    temperature=0,
+                    max_completion_tokens=30,
+                    response_format={
+                        "type": "json_object",
+                    },
+                )
+            )
+        except groq.APIError as error:
+            raise convert_groq_error(error) from error
+
+        content = require_message_content(
+            completion.choices[0].message.content
+        )
+
+        selected_candidate_id = parse_selected_candidate_id(
+            content=content,
+            allowed_candidate_ids=candidate_ids,
+        )
+
+        return Vote(
+            voter_id=voter.id,
+            candidate_id=selected_candidate_id,
+        )
+
+
+def build_vote_prompt(
+    voter: Agent,
+    options: Sequence[VoteOption],
+) -> str:
+    rendered_options = "\n\n".join(
+        (
+            f"Candidate ID: {option.candidate_id}\n"
+            f"Answer: {option.answer_content}"
+        )
+        for option in options
+    )
+
+    allowed_ids = ", ".join(
+        option.candidate_id
+        for option in options
+    )
+
+    return (
+        "Select the single best answer using these criteria:\n"
+        "1. Relevance to the question\n"
+        "2. Accuracy and sound reasoning\n"
+        "3. Clarity and usefulness\n"
+        "4. Original insight\n\n"
+        "You must select exactly one of these candidate IDs:\n"
+        f"{allowed_ids}\n\n"
+        "Return this exact JSON shape:\n"
+        '{"candidate_id": "<one allowed candidate ID>"}\n\n'
+        "Anonymous answers:\n"
+        f"{rendered_options}\n\n"
+        "Your evaluator personality may affect judgment, but do "
+        "not invent candidate IDs.\n"
+        f"Evaluator personality: {voter.personality.name}"
+    )
+
+
+def parse_selected_candidate_id(
+    content: str,
+    allowed_candidate_ids: Sequence[str],
+) -> str:
+    try:
+        parsed_content = json.loads(content)
+    except json.JSONDecodeError as error:
+        raise GroqProviderError(
+            "Groq returned invalid voting JSON"
+        ) from error
+
+    if not isinstance(parsed_content, dict):
+        raise GroqProviderError(
+            "Groq voting output must be a JSON object"
+        )
+
+    candidate_id = parsed_content.get("candidate_id")
+
+    if not isinstance(candidate_id, str):
+        raise GroqProviderError(
+            "Groq voting output is missing candidate_id"
+        )
+
+    if candidate_id not in allowed_candidate_ids:
+        raise GroqProviderError(
+            "Groq selected an unknown candidate: "
+            f"{candidate_id}"
+        )
+
+    return candidate_id
