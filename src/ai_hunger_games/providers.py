@@ -4,9 +4,39 @@ from typing import Protocol
 from ai_hunger_games.models import (
     Agent,
     Answer,
+    EvolutionContext,
+    GeneratedPersonality,
     Vote,
     VoteOption,
 )
+
+class PersonalityProvider(Protocol):
+    async def generate_personality(
+        self,
+        context: EvolutionContext,
+    ) -> GeneratedPersonality:
+        ...
+
+class SimulatedPersonalityProvider:
+    async def generate_personality(
+        self,
+        context: EvolutionContext,
+    ) -> GeneratedPersonality:
+        del context
+
+        return GeneratedPersonality(
+            name="Practical Builder",
+            description=(
+                "A grounded problem solver focused on "
+                "feasible action and measurable outcomes."
+            ),
+            answer_instructions=(
+                "Answer the question as a practical builder. "
+                "Focus on achievable actions, tradeoffs, and "
+                "clear implementation. The question is: "
+                "{question}"
+            ),
+        )
 
 
 class RetryableProviderError(RuntimeError):
@@ -33,15 +63,26 @@ class InsufficientAnswersError(RuntimeError):
         self,
         successful_answer_count: int,
         minimum_required: int,
+        failure_details: str = "",
     ) -> None:
         self.successful_answer_count = successful_answer_count
         self.minimum_required = minimum_required
+        self.failure_details = failure_details
 
-        super().__init__(
+        message = (
             "Not enough answers to continue the round: "
             f"received {successful_answer_count}, "
             f"required {minimum_required}"
         )
+
+        if failure_details:
+            message = (
+                f"{message}\n"
+                "Provider failures:\n"
+                f"{failure_details}"
+            )
+
+        super().__init__(message)
 
 
 class AnswerProvider(Protocol):

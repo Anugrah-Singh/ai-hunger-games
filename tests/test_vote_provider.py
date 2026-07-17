@@ -10,6 +10,7 @@ from ai_hunger_games.models import (
     Answer,
     Personality,
     Vote,
+    VoteGenerationPolicy,
     VoteOption,
 )
 from ai_hunger_games.providers import (
@@ -58,6 +59,13 @@ def create_test_answers() -> list[Answer]:
         ),
     ]
 
+def create_test_vote_policy() -> VoteGenerationPolicy:
+    return VoteGenerationPolicy(
+        timeout_seconds=1.0,
+        maximum_attempts=1,
+        initial_retry_delay_seconds=0,
+        maximum_retry_delay_seconds=0,
+    )
 
 class FirstOptionVoteProvider:
     async def generate_vote(
@@ -163,6 +171,7 @@ async def test_generate_votes_creates_one_vote_per_agent() -> None:
         candidates=candidates,
         provider=FirstOptionVoteProvider(),
         seed=7,
+        policy=create_test_vote_policy(),
     )
 
     assert len(votes) == len(agents)
@@ -192,6 +201,7 @@ async def test_generate_votes_never_offers_own_answer() -> None:
         candidates=candidates,
         provider=provider,
         seed=7,
+        policy=create_test_vote_policy(),
     )
 
     candidates_by_id = {

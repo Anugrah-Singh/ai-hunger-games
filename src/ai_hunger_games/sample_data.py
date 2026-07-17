@@ -19,11 +19,11 @@ ELIMINATION_SEED = 99
 REPLACEMENT_SEED = 123
 REPLACEMENT_AGENT_ID = "agent_5"
 ANSWER_POLICY = AnswerGenerationPolicy(
-    timeout_seconds=5.0,
+    timeout_seconds=30.0,
     minimum_successful_answers=2,
-    maximum_attempts=3,
-    initial_retry_delay_seconds=0.1,
-    maximum_retry_delay_seconds=1.0,
+    maximum_attempts=4,
+    initial_retry_delay_seconds=3.0,
+    maximum_retry_delay_seconds=20.0,
 )
 VOTE_POLICY = VoteGenerationPolicy(
     timeout_seconds=15.0,

@@ -7,6 +7,7 @@ from ai_hunger_games.models import (
     AnswerBatchResult,
     AnswerGenerationPolicy,
     Candidate,
+    EvolutionContext,
     GameResult,
     Personality,
     Round,
@@ -14,12 +15,15 @@ from ai_hunger_games.models import (
     Vote,
     VoteGenerationPolicy,
     VoteOption,
+    AgentFailure,
 )
 from ai_hunger_games.providers import (
     AnswerGenerationTimeoutError,
     AnswerProvider,
     InsufficientAnswersError,
+    PersonalityProvider,
     RetryableProviderError,
+    SimulatedPersonalityProvider,
     SimulatedVoteProvider,
     VoteGenerationTimeoutError,
     VoteProvider,
@@ -234,7 +238,7 @@ async def generate_answers(
     )
 
     successful_answers: list[Answer] = []
-    failed_agent_ids: list[str] = []
+    failures: list[AgentFailure] = []
 
     for agent, result in zip(
         agents,
@@ -242,14 +246,20 @@ async def generate_answers(
         strict=True,
     ):
         if isinstance(result, BaseException):
-            failed_agent_ids.append(agent.id)
+            failures.append(
+                AgentFailure(
+                    agent_id=agent.id,
+                    error_type=type(result).__name__,
+                    message=str(result),
+                )
+            )
             continue
 
         successful_answers.append(result)
 
     return AnswerBatchResult(
         answers=successful_answers,
-        failed_agent_ids=failed_agent_ids,
+        failures=failures,
     )
 
 
@@ -526,61 +536,66 @@ def select_eliminated_agent(
         lowest_scoring_agent_ids
     )
 
-
-def generate_replacement_personality(
-    seed: int,
-) -> Personality:
-    personality_styles = [
-        (
-            "Practical Builder",
-            "A practical answer to '{question}' is that "
-            "strong decisions should be useful, achievable, "
-            "and supported by clear action.",
-        ),
-        (
-            "Curious Explorer",
-            "A curious answer to '{question}' begins by "
-            "questioning assumptions, considering alternatives, "
-            "and remaining open to unexpected evidence.",
-        ),
-        (
-            "Empathetic Mediator",
-            "An empathetic answer to '{question}' considers "
-            "how the decision affects different people and "
-            "searches for a fair, cooperative outcome.",
-        ),
-        (
-            "Bold Challenger",
-            "A bold answer to '{question}' is that progress "
-            "often requires challenging comfortable beliefs "
-            "and taking carefully considered risks.",
-        ),
-    ]
-
-    random_generator = Random(seed)
-
-    personality_name, answer_template = (
-        random_generator.choice(personality_styles)
-    )
-
-    return Personality(
-        name=personality_name,
-        answer_template=answer_template,
-    )
-
-
-def generate_replacement_agent(
+async def generate_replacement_agent(
     agent_id: str,
-    seed: int,
+    context: EvolutionContext,
+    provider: PersonalityProvider,
 ) -> Agent:
-    personality = generate_replacement_personality(seed)
+    generated_personality = (
+        await provider.generate_personality(context)
+    )
+
+    personality = Personality(
+        name=generated_personality.name,
+        description=generated_personality.description,
+        answer_template=(
+            generated_personality.answer_instructions
+        ),
+    )
 
     return Agent(
         id=agent_id,
-        name=personality.name,
+        name=generated_personality.name,
         personality=personality,
     )
 
+def create_evolution_context(
+    agents: list[Agent],
+    total_scores_by_agent_id: dict[str, int],
+    eliminated_agent_id: str,
+) -> EvolutionContext:
+    agents_by_id = {
+        agent.id: agent
+        for agent in agents
+    }
+
+    eliminated_agent = agents_by_id[
+        eliminated_agent_id
+    ]
+
+    highest_score = max(
+        total_scores_by_agent_id.values()
+    )
+
+    winning_personality_names = [
+        agents_by_id[agent_id].personality.name
+        for agent_id, score
+        in total_scores_by_agent_id.items()
+        if score == highest_score
+    ]
+
+    return EvolutionContext(
+        eliminated_agent_id=eliminated_agent_id,
+        eliminated_personality_name=(
+            eliminated_agent.personality.name
+        ),
+        total_scores_by_agent_id=dict(
+            total_scores_by_agent_id
+        ),
+        winning_personality_names=(
+            winning_personality_names
+        ),
+    )
 
 def replace_agent(
     agents: list[Agent],
@@ -614,7 +629,6 @@ def replace_agent(
         *remaining_agents,
         replacement_agent,
     ]
-
 
 def convert_candidate_scores_to_agent_scores(
     candidates: list[Candidate],
@@ -667,6 +681,15 @@ async def run_round(
         len(answer_batch.answers)
         < answer_policy.minimum_successful_answers
     ):
+        failure_details = "\n".join(
+            (
+                f"- {failure.agent_id}: "
+                f"{failure.error_type}: "
+                f"{failure.message}"
+            )
+            for failure in answer_batch.failures
+        )
+    
         raise InsufficientAnswersError(
             successful_answer_count=len(
                 answer_batch.answers
@@ -674,6 +697,7 @@ async def run_round(
             minimum_required=(
                 answer_policy.minimum_successful_answers
             ),
+            failure_details=failure_details,
         )
 
     validate_answers(
@@ -752,11 +776,14 @@ async def run_game(
     answer_policy: AnswerGenerationPolicy,
     vote_provider: VoteProvider | None = None,
     vote_policy: VoteGenerationPolicy | None = None,
+    personality_provider: PersonalityProvider | None = None,
 ) -> GameResult:
     if not questions:
         raise ValueError(
             "At least one question is required"
         )
+
+    del replacement_seed
 
     validate_agents(agents)
     validate_answer_policy(answer_policy)
@@ -810,9 +837,21 @@ async def run_game(
         seed=elimination_seed,
     )
 
-    replacement_agent = generate_replacement_agent(
+    evolution_context = create_evolution_context(
+        agents=agents,
+        total_scores_by_agent_id=total_scores_by_agent_id,
+        eliminated_agent_id=eliminated_agent_id,
+    )
+
+    effective_personality_provider = (
+        personality_provider
+        or SimulatedPersonalityProvider()
+    )
+
+    replacement_agent = await generate_replacement_agent(
         agent_id=replacement_agent_id,
-        seed=replacement_seed,
+        context=evolution_context,
+        provider=effective_personality_provider,
     )
 
     final_agents = replace_agent(

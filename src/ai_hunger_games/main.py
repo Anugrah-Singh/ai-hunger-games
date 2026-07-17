@@ -8,11 +8,14 @@ from ai_hunger_games.engine import (
 )
 from ai_hunger_games.groq_providers import (
     GroqAnswerProvider,
+    GroqPersonalityProvider,
     GroqVoteProvider,
 )
 from ai_hunger_games.providers import (
     AnswerProvider,
+    PersonalityProvider,
     SimulatedAnswerProvider,
+    SimulatedPersonalityProvider,
     SimulatedVoteProvider,
     VoteProvider,
 )
@@ -39,12 +42,14 @@ def create_providers(
 ) -> tuple[
     AnswerProvider,
     VoteProvider,
+    PersonalityProvider,
     AsyncGroq | None,
 ]:
     if not settings.use_real_llm:
         return (
             SimulatedAnswerProvider(),
             SimulatedVoteProvider(),
+            SimulatedPersonalityProvider(),
             None,
         )
 
@@ -52,6 +57,7 @@ def create_providers(
 
     client = AsyncGroq(
         api_key=api_key,
+        max_retries=0,
     )
 
     return (
@@ -60,6 +66,10 @@ def create_providers(
             model=settings.groq_model,
         ),
         GroqVoteProvider(
+            client=client,
+            model=settings.groq_model,
+        ),
+        GroqPersonalityProvider(
             client=client,
             model=settings.groq_model,
         ),
@@ -73,6 +83,7 @@ async def main() -> None:
     (
         answer_provider,
         vote_provider,
+        personality_provider,
         groq_client,
     ) = create_providers(settings)
 
@@ -80,6 +91,7 @@ async def main() -> None:
         await run_and_print_game(
             answer_provider=answer_provider,
             vote_provider=vote_provider,
+            personality_provider=personality_provider,
             settings=settings,
         )
     finally:
@@ -90,6 +102,7 @@ async def main() -> None:
 async def run_and_print_game(
     answer_provider: AnswerProvider,
     vote_provider: VoteProvider,
+    personality_provider: PersonalityProvider,
     settings: Settings,
 ) -> None:
     agents_by_id = {
@@ -118,6 +131,7 @@ async def run_and_print_game(
         answer_policy=ANSWER_POLICY,
         vote_provider=vote_provider,
         vote_policy=VOTE_POLICY,
+        personality_provider=personality_provider,
     )
 
     for round_result in game_result.round_results:
@@ -151,9 +165,11 @@ async def run_and_print_game(
 
         for vote in round_result.votes:
             voter = agents_by_id[vote.voter_id]
+
             selected_candidate = candidates_by_id[
                 vote.candidate_id
             ]
+
             selected_agent = agents_by_id[
                 selected_candidate.answer.agent_id
             ]
@@ -197,12 +213,36 @@ async def run_and_print_game(
         game_result.eliminated_agent_id
     ]
 
+    replacement_personality = (
+        game_result.replacement_agent.personality
+    )
+
     print()
     print(f"Eliminated agent: {eliminated_agent.name}")
+
     print(
         "Replacement agent: "
         f"{game_result.replacement_agent.name}"
     )
+
+    print(
+        "Replacement description: "
+        f"{replacement_personality.description}"
+    )
+
+    print(
+        "Replacement answer instructions: "
+        f"{replacement_personality.answer_template}"
+    )
+
+    print()
+    print("Agents entering the next game:")
+
+    for agent in game_result.final_agents:
+        print(
+            f"- {agent.name} "
+            f"({agent.id})"
+        )
 
 
 if __name__ == "__main__":

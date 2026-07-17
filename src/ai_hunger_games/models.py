@@ -17,7 +17,13 @@ class VoteOption:
 class Personality:
     name: str
     answer_template: str
+    description: str = ""
 
+@dataclass(frozen=True)
+class GeneratedPersonality:
+    name: str
+    description: str
+    answer_instructions: str
 
 @dataclass
 class Agent:
@@ -25,6 +31,11 @@ class Agent:
     name: str
     personality: Personality
 
+@dataclass(frozen=True)
+class AgentFailure:
+    agent_id: str
+    error_type: str
+    message: str
 
 @dataclass
 class Answer:
@@ -35,7 +46,14 @@ class Answer:
 @dataclass
 class AnswerBatchResult:
     answers: list[Answer]
-    failed_agent_ids: list[str]
+    failures: list[AgentFailure]
+
+    @property
+    def failed_agent_ids(self) -> list[str]:
+        return [
+            failure.agent_id
+            for failure in self.failures
+        ]
 
 
 @dataclass(frozen=True)
@@ -85,3 +103,10 @@ class GameResult:
     eliminated_agent_id: str
     replacement_agent: Agent
     final_agents: list[Agent]
+
+@dataclass(frozen=True)
+class EvolutionContext:
+    eliminated_agent_id: str
+    eliminated_personality_name: str
+    total_scores_by_agent_id: dict[str, int]
+    winning_personality_names: list[str]
