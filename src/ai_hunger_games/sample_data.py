@@ -5,6 +5,7 @@ from ai_hunger_games.models import (
     AnswerGenerationPolicy,
     Personality,
     VoteGenerationPolicy,
+    PersonalityGenerationPolicy,
 )
 
 QUESTIONS = [
@@ -26,10 +27,16 @@ ANSWER_POLICY = AnswerGenerationPolicy(
     maximum_retry_delay_seconds=20.0,
 )
 VOTE_POLICY = VoteGenerationPolicy(
-    timeout_seconds=15.0,
+    timeout_seconds=30.0,
     maximum_attempts=4,
-    initial_retry_delay_seconds=2.0,
-    maximum_retry_delay_seconds=15.0,
+    initial_retry_delay_seconds=3.0,
+    maximum_retry_delay_seconds=20.0,
+)
+PERSONALITY_POLICY = PersonalityGenerationPolicy(
+    timeout_seconds=30.0,
+    maximum_attempts=4,
+    initial_retry_delay_seconds=3.0,
+    maximum_retry_delay_seconds=20.0,
 )
 
 AGENTS = [

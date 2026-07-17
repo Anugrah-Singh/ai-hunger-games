@@ -1,5 +1,14 @@
 import asyncio
 
+from ai_hunger_games.database import (
+    create_database_engine,
+    create_session_factory,
+)
+from ai_hunger_games.database_setup import (
+    initialize_database,
+)
+from ai_hunger_games.repositories import GameRepository
+
 from groq import AsyncGroq
 
 from ai_hunger_games.engine import (
@@ -29,6 +38,7 @@ from ai_hunger_games.sample_data import (
     REPLACEMENT_SEED,
     VOTING_SEED,
     VOTE_POLICY,
+    PERSONALITY_POLICY,
 )
 from ai_hunger_games.settings import (
     Settings,
@@ -132,7 +142,40 @@ async def run_and_print_game(
         vote_provider=vote_provider,
         vote_policy=VOTE_POLICY,
         personality_provider=personality_provider,
+        personality_policy=PERSONALITY_POLICY,
     )
+
+    database_engine = create_database_engine()
+
+    try:
+        await initialize_database(database_engine)
+
+        session_factory = create_session_factory(
+            database_engine
+        )
+
+        async with session_factory() as session:
+            repository = GameRepository(session)
+
+            saved_game = await repository.save_game(
+                game_result=game_result,
+                original_agents=AGENTS,
+                provider_name=provider_name,
+            )
+    finally:
+        await database_engine.dispose()
+
+    print(
+        "Saved generation: "
+        f"{saved_game.generation_number}"
+    )
+
+    print(
+        "Database game ID: "
+        f"{saved_game.id}"
+    )
+
+    print()
 
     for round_result in game_result.round_results:
         candidates_by_id = {

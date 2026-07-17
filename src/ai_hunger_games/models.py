@@ -110,3 +110,12 @@ class EvolutionContext:
     eliminated_personality_name: str
     total_scores_by_agent_id: dict[str, int]
     winning_personality_names: list[str]
+
+
+
+@dataclass(frozen=True)
+class PersonalityGenerationPolicy:
+    timeout_seconds: float
+    maximum_attempts: int
+    initial_retry_delay_seconds: float
+    maximum_retry_delay_seconds: float

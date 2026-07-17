@@ -38,9 +38,16 @@ def convert_groq_error(error: Exception) -> Exception:
 
     if isinstance(error, groq.APIStatusError):
         if error.status_code in RETRYABLE_STATUS_CODES:
+            retry_after_seconds = get_retry_after_seconds(
+                error
+            )
+        
             return RetryableProviderError(
-                "Groq returned a temporary error "
-                f"with status {error.status_code}"
+                (
+                    "Groq returned a temporary error "
+                    f"with status {error.status_code}"
+                ),
+                retry_after_seconds=retry_after_seconds,
             )
 
         return GroqProviderError(
@@ -416,3 +423,18 @@ class GroqPersonalityProvider:
         )
 
         return parse_generated_personality(content)
+    
+def get_retry_after_seconds(
+    error: groq.APIStatusError,
+) -> float | None:
+    retry_after = error.response.headers.get(
+        "retry-after"
+    )
+
+    if retry_after is None:
+        return None
+
+    try:
+        return float(retry_after)
+    except ValueError:
+        return None

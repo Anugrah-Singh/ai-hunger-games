@@ -40,7 +40,13 @@ class SimulatedPersonalityProvider:
 
 
 class RetryableProviderError(RuntimeError):
-    """A temporary provider error that may succeed when retried."""
+    def __init__(
+        self,
+        message: str,
+        retry_after_seconds: float | None = None,
+    ) -> None:
+        self.retry_after_seconds = retry_after_seconds
+        super().__init__(message)
 
 
 class AnswerGenerationTimeoutError(RuntimeError):
@@ -158,4 +164,17 @@ class VoteGenerationTimeoutError(RuntimeError):
         super().__init__(
             "Vote generation timed out for "
             f"{voter_id} after {timeout_seconds} seconds"
+        )
+
+
+class PersonalityGenerationTimeoutError(RuntimeError):
+    def __init__(
+        self,
+        timeout_seconds: float,
+    ) -> None:
+        self.timeout_seconds = timeout_seconds
+
+        super().__init__(
+            "Personality generation timed out after "
+            f"{timeout_seconds} seconds"
         )

@@ -16,6 +16,7 @@ from ai_hunger_games.models import (
     VoteGenerationPolicy,
     VoteOption,
     AgentFailure,
+    PersonalityGenerationPolicy,
 )
 from ai_hunger_games.providers import (
     AnswerGenerationTimeoutError,
@@ -27,6 +28,7 @@ from ai_hunger_games.providers import (
     SimulatedVoteProvider,
     VoteGenerationTimeoutError,
     VoteProvider,
+    PersonalityGenerationTimeoutError,
 )
 
 
@@ -357,18 +359,30 @@ async def generate_vote_with_retry(
         except (
             RetryableProviderError,
             VoteGenerationTimeoutError,
-        ):
+        ) as error:
             is_final_attempt = (
                 attempt_number == policy.maximum_attempts
             )
 
             if is_final_attempt:
                 raise
-
-            retry_delay_seconds = min(
+            
+            backoff_delay_seconds = min(
                 policy.initial_retry_delay_seconds
                 * (2 ** (attempt_number - 1)),
                 policy.maximum_retry_delay_seconds,
+            )
+
+            provider_retry_delay = 0.0
+
+            if isinstance(error, RetryableProviderError):
+                provider_retry_delay = (
+                    error.retry_after_seconds or 0.0
+                )
+
+            retry_delay_seconds = max(
+                backoff_delay_seconds,
+                provider_retry_delay,
             )
 
             await asyncio.sleep(retry_delay_seconds)
@@ -392,7 +406,7 @@ async def generate_votes(
 
     validate_vote_policy(policy)
 
-    vote_tasks = []
+    votes: list[Vote] = []
 
     for voter_position, voter in enumerate(
         agents,
@@ -410,17 +424,17 @@ async def generate_votes(
 
         voter_seed = seed + voter_position
 
-        vote_tasks.append(
-            generate_vote_with_retry(
-                voter=voter,
-                options=options,
-                provider=provider,
-                seed=voter_seed,
-                policy=policy,
-            )
+        vote = await generate_vote_with_retry(
+            voter=voter,
+            options=options,
+            provider=provider,
+            seed=voter_seed,
+            policy=policy,
         )
 
-    return list(await asyncio.gather(*vote_tasks))
+        votes.append(vote)
+
+    return votes
 
 
 def count_votes(
@@ -536,13 +550,120 @@ def select_eliminated_agent(
         lowest_scoring_agent_ids
     )
 
+
+def validate_personality_policy(
+    policy: PersonalityGenerationPolicy,
+) -> None:
+    if policy.timeout_seconds <= 0:
+        raise ValueError(
+            "Personality timeout must be greater than zero"
+        )
+
+    if policy.maximum_attempts < 1:
+        raise ValueError(
+            "Maximum personality attempts must be at least 1"
+        )
+
+    if policy.initial_retry_delay_seconds < 0:
+        raise ValueError(
+            "Initial personality retry delay cannot be negative"
+        )
+
+    if policy.maximum_retry_delay_seconds < 0:
+        raise ValueError(
+            "Maximum personality retry delay cannot be negative"
+        )
+
+    if (
+        policy.maximum_retry_delay_seconds
+        < policy.initial_retry_delay_seconds
+    ):
+        raise ValueError(
+            "Maximum personality retry delay cannot be less "
+            "than the initial retry delay"
+        )
+
+
+async def generate_personality_once(
+    context: EvolutionContext,
+    provider: PersonalityProvider,
+    timeout_seconds: float,
+) -> GeneratedPersonality:
+    try:
+        return await asyncio.wait_for(
+            provider.generate_personality(context),
+            timeout=timeout_seconds,
+        )
+    except TimeoutError as error:
+        raise PersonalityGenerationTimeoutError(
+            timeout_seconds=timeout_seconds,
+        ) from error
+
+
+async def generate_personality_with_retry(
+    context: EvolutionContext,
+    provider: PersonalityProvider,
+    policy: PersonalityGenerationPolicy,
+) -> GeneratedPersonality:
+    validate_personality_policy(policy)
+
+    for attempt_number in range(
+        1,
+        policy.maximum_attempts + 1,
+    ):
+        try:
+            return await generate_personality_once(
+                context=context,
+                provider=provider,
+                timeout_seconds=policy.timeout_seconds,
+            )
+        except (
+            RetryableProviderError,
+            PersonalityGenerationTimeoutError,
+        ) as error:
+            is_final_attempt = (
+                attempt_number == policy.maximum_attempts
+            )
+
+            if is_final_attempt:
+                raise
+
+            backoff_delay_seconds = min(
+                policy.initial_retry_delay_seconds
+                * (2 ** (attempt_number - 1)),
+                policy.maximum_retry_delay_seconds,
+            )
+
+            provider_retry_delay_seconds = 0.0
+
+            if isinstance(error, RetryableProviderError):
+                provider_retry_delay_seconds = (
+                    error.retry_after_seconds or 0.0
+                )
+
+            retry_delay_seconds = max(
+                backoff_delay_seconds,
+                provider_retry_delay_seconds,
+            )
+
+            await asyncio.sleep(retry_delay_seconds)
+
+    raise RuntimeError(
+        "Personality retry loop ended unexpectedly"
+    )
+
 async def generate_replacement_agent(
     agent_id: str,
     context: EvolutionContext,
     provider: PersonalityProvider,
+    policy: PersonalityGenerationPolicy,
 ) -> Agent:
     generated_personality = (
-        await provider.generate_personality(context)
+        await generate_personality_with_retry(
+            context=context,
+            provider=provider,
+            policy=policy,
+        )
     )
 
     personality = Personality(
@@ -689,7 +810,7 @@ async def run_round(
             )
             for failure in answer_batch.failures
         )
-    
+
         raise InsufficientAnswersError(
             successful_answer_count=len(
                 answer_batch.answers
@@ -777,6 +898,7 @@ async def run_game(
     vote_provider: VoteProvider | None = None,
     vote_policy: VoteGenerationPolicy | None = None,
     personality_provider: PersonalityProvider | None = None,
+    personality_policy: PersonalityGenerationPolicy | None = None,
 ) -> GameResult:
     if not questions:
         raise ValueError(
@@ -848,10 +970,21 @@ async def run_game(
         or SimulatedPersonalityProvider()
     )
 
+    effective_personality_policy = (
+        personality_policy
+        or PersonalityGenerationPolicy(
+            timeout_seconds=30.0,
+            maximum_attempts=4,
+            initial_retry_delay_seconds=3.0,
+            maximum_retry_delay_seconds=20.0,
+        )
+    )
+
     replacement_agent = await generate_replacement_agent(
         agent_id=replacement_agent_id,
         context=evolution_context,
         provider=effective_personality_provider,
+        policy=effective_personality_policy,
     )
 
     final_agents = replace_agent(
