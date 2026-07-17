@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Badge,
   Button,
@@ -24,6 +25,9 @@ import {
 } from "lucide-react";
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
 import * as m from "motion/react-m";
+import Particles, { initParticlesEngine } from "@tsparticles/react";
+import { loadSlim } from "@tsparticles/slim";
+import Tilt from "react-parallax-tilt";
 
 import type {
   ExperimentAnalysis,
@@ -135,6 +139,16 @@ export function ShowcaseTab({
   generations,
   onTabChange,
 }: ShowcaseTabProps) {
+  const [init, setInit] = useState(false);
+
+  useEffect(() => {
+    initParticlesEngine(async (engine) => {
+      await loadSlim(engine);
+    }).then(() => {
+      setInit(true);
+    });
+  }, []);
+
   const latestGeneration = generations.at(-1);
   const persistedRounds = generations.reduce(
     (total, generation) => total + generation.round_count,
@@ -145,11 +159,11 @@ export function ShowcaseTab({
 
   return (
     <Theme
-      accentColor="teal"
-      appearance="light"
-      grayColor="sage"
+      accentColor="cyan"
+      appearance="dark"
+      grayColor="slate"
       hasBackground={false}
-      radius="small"
+      radius="large"
       scaling="100%"
     >
       <LazyMotion features={domAnimation} strict>
@@ -160,15 +174,67 @@ export function ShowcaseTab({
               animate={{ opacity: 1, y: 0 }}
               initial={{ opacity: 1, y: 6 }}
               transition={{ duration: 0.34, ease: "easeOut" }}
+              style={{ position: 'relative', overflow: 'hidden' }}
             >
+              {init && (
+                <Particles
+                  id="tsparticles"
+                  options={{
+                    fullScreen: { enable: false, zIndex: 0 },
+                    background: { color: { value: "transparent" } },
+                    fpsLimit: 120,
+                    interactivity: {
+                      events: {
+                        onHover: { enable: true, mode: "repulse" },
+                      },
+                      modes: { repulse: { distance: 100, duration: 0.4 } },
+                    },
+                    particles: {
+                      color: { value: "#0ea5e9" },
+                      links: {
+                        color: "#0ea5e9",
+                        distance: 150,
+                        enable: true,
+                        opacity: 0.2,
+                        width: 1,
+                      },
+                      move: {
+                        direction: "none",
+                        enable: true,
+                        outModes: { default: "bounce" },
+                        random: false,
+                        speed: 1,
+                        straight: false,
+                      },
+                      number: {
+                        density: { enable: true, width: 800, height: 800 },
+                        value: 80,
+                      },
+                      opacity: { value: 0.4 },
+                      shape: { type: "circle" },
+                      size: { value: { min: 1, max: 3 } },
+                    },
+                    detectRetina: true,
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                    zIndex: 0,
+                  }}
+                />
+              )}
               <img
                 alt=""
                 aria-hidden="true"
                 className="showcase-hero-mark"
                 src="/static/arena-mark.png"
+                style={{ zIndex: 1 }}
               />
-              <div className="showcase-hero-content">
-                <Badge color="teal" size="2" variant="surface">
+              <div className="showcase-hero-content" style={{ position: 'relative', zIndex: 1 }}>
+                <Badge color="cyan" size="2" variant="surface">
                   Portfolio case study
                 </Badge>
                 <p className="showcase-kicker">Multi-agent experiment platform</p>
@@ -280,7 +346,8 @@ export function ShowcaseTab({
             </m.section>
 
             <section className="showcase-outcome-grid">
-              <Card className="showcase-outcome-card" size="3" variant="surface">
+              <Tilt tiltMaxAngleX={5} tiltMaxAngleY={5} perspective={1000} scale={1.02} transitionSpeed={2500} className="showcase-tilt-wrapper">
+                <Card className="showcase-outcome-card" size="3" variant="surface">
                 <div className="showcase-section-heading">
                   <div>
                     <p className="eyebrow">Latest persisted outcome</p>
@@ -321,6 +388,7 @@ export function ShowcaseTab({
                   </DataList.Item>
                 </DataList.Root>
               </Card>
+            </Tilt>
 
               <Callout.Root className="showcase-caution" color="amber" size="2" variant="surface">
                 <Callout.Icon>
