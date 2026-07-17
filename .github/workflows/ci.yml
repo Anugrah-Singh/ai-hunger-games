@@ -1,0 +1,79 @@
+name: Continuous integration
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv and select Python
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Sync locked Python dependencies
+        run: uv sync --locked --all-groups
+
+      - name: Lint and check formatting
+        if: matrix.python-version == '3.14'
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run Python tests
+        run: uv run pytest -v
+
+      - name: Verify Alembic metadata
+        if: matrix.python-version == '3.14'
+        run: uv run alembic check
+
+      - name: Build wheel
+        if: matrix.python-version == '3.14'
+        run: uv build --wheel --out-dir dist
+
+  frontend:
+    name: React dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type-check dashboard
+        working-directory: frontend
+        run: npm run check
+
+      - name: Test dashboard
+        working-directory: frontend
+        run: npm test
+
+      - name: Build dashboard
+        working-directory: frontend
+        run: npm run build
+
+      - name: Verify served dashboard assets are committed
+        run: git diff --exit-code -- src/ai_hunger_games/web

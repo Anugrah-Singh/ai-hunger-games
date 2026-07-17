@@ -1,25 +1,26 @@
+import argparse
 import asyncio
+
+from groq import AsyncGroq
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_hunger_games.database import (
     create_database_engine,
     create_session_factory,
 )
-from ai_hunger_games.database_setup import (
-    initialize_database,
+from ai_hunger_games.database_setup import initialize_database
+from ai_hunger_games.db_models import ExperimentRecord
+from ai_hunger_games.experiment_definitions import (
+    build_default_experiment_definition,
+    build_generation_run_config,
 )
-from ai_hunger_games.repositories import GameRepository
-
-from groq import AsyncGroq
-
-from ai_hunger_games.engine import (
-    convert_candidate_scores_to_agent_scores,
-    run_game,
-)
+from ai_hunger_games.generations import run_generations
 from ai_hunger_games.groq_providers import (
     GroqAnswerProvider,
     GroqPersonalityProvider,
     GroqVoteProvider,
 )
+from ai_hunger_games.models import Agent, ExperimentDefinition
 from ai_hunger_games.providers import (
     AnswerProvider,
     PersonalityProvider,
@@ -28,23 +29,18 @@ from ai_hunger_games.providers import (
     SimulatedVoteProvider,
     VoteProvider,
 )
-from ai_hunger_games.sample_data import (
-    AGENTS,
-    ANSWER_POLICY,
-    CANDIDATE_ORDER_SEED,
-    ELIMINATION_SEED,
-    QUESTIONS,
-    REPLACEMENT_AGENT_ID,
-    REPLACEMENT_SEED,
-    VOTING_SEED,
-    VOTE_POLICY,
-    PERSONALITY_POLICY,
+from ai_hunger_games.repositories import (
+    ExperimentConfigurationError,
+    ExperimentRepository,
+    GameRepository,
+    ProviderConfigurationConflictError,
 )
 from ai_hunger_games.settings import (
     Settings,
     load_settings,
     require_groq_api_key,
 )
+from ai_hunger_games.terminal import render_generation_result
 
 
 def create_providers(
@@ -64,7 +60,6 @@ def create_providers(
         )
 
     api_key = require_groq_api_key(settings)
-
     client = AsyncGroq(
         api_key=api_key,
         max_retries=0,
@@ -87,206 +82,220 @@ def create_providers(
     )
 
 
-async def main() -> None:
-    settings = load_settings()
+def provider_name_for_settings(settings: Settings) -> str:
+    if settings.use_real_llm:
+        return f"Groq ({settings.groq_model})"
 
-    (
-        answer_provider,
-        vote_provider,
-        personality_provider,
-        groq_client,
-    ) = create_providers(settings)
-
-    try:
-        await run_and_print_game(
-            answer_provider=answer_provider,
-            vote_provider=vote_provider,
-            personality_provider=personality_provider,
-            settings=settings,
-        )
-    finally:
-        if groq_client is not None:
-            await groq_client.close()
+    return "Simulated providers"
 
 
-async def run_and_print_game(
-    answer_provider: AnswerProvider,
-    vote_provider: VoteProvider,
-    personality_provider: PersonalityProvider,
-    settings: Settings,
+async def main(
+    generation_count: int = 1,
+    *,
+    new_experiment_name: str | None = None,
+    experiment_id: int | None = None,
+    list_experiments: bool = False,
 ) -> None:
-    agents_by_id = {
-        agent.id: agent
-        for agent in AGENTS
-    }
-
-    provider_name = (
-        f"Groq ({settings.groq_model})"
-        if settings.use_real_llm
-        else "Simulated providers"
-    )
-
-    print(f"Provider: {provider_name}")
-    print()
-
-    game_result = await run_game(
-        questions=QUESTIONS,
-        agents=AGENTS,
-        candidate_order_seed=CANDIDATE_ORDER_SEED,
-        voting_seed=VOTING_SEED,
-        elimination_seed=ELIMINATION_SEED,
-        replacement_seed=REPLACEMENT_SEED,
-        replacement_agent_id=REPLACEMENT_AGENT_ID,
-        answer_provider=answer_provider,
-        answer_policy=ANSWER_POLICY,
-        vote_provider=vote_provider,
-        vote_policy=VOTE_POLICY,
-        personality_provider=personality_provider,
-        personality_policy=PERSONALITY_POLICY,
-    )
-
+    settings = load_settings()
+    provider_name = provider_name_for_settings(settings)
     database_engine = create_database_engine()
+    groq_client: AsyncGroq | None = None
 
     try:
         await initialize_database(database_engine)
 
-        session_factory = create_session_factory(
-            database_engine
-        )
+        async with create_session_factory(database_engine)() as session:
+            experiment_repository = ExperimentRepository(session)
 
-        async with session_factory() as session:
-            repository = GameRepository(session)
+            if list_experiments:
+                await _print_experiments(experiment_repository)
+                return
 
-            saved_game = await repository.save_game(
-                game_result=game_result,
-                original_agents=AGENTS,
+            experiment, definition, starting_agents = await _resolve_experiment(
+                experiment_repository=experiment_repository,
+                session=session,
+                new_experiment_name=new_experiment_name,
+                experiment_id=experiment_id,
                 provider_name=provider_name,
             )
+            repository = GameRepository(
+                session,
+                experiment.id,
+            )
+
+            print(f"Provider: {provider_name}")
+            print(f"Experiment: {experiment.name} (ID: {experiment.id})")
+            print()
+
+            (
+                answer_provider,
+                vote_provider,
+                personality_provider,
+                groq_client,
+            ) = create_providers(settings)
+
+            results = await run_generations(
+                initial_agents=starting_agents,
+                config=build_generation_run_config(
+                    definition,
+                    generation_count,
+                ),
+                answer_provider=answer_provider,
+                vote_provider=vote_provider,
+                personality_provider=personality_provider,
+                repository=repository,
+                provider_name=provider_name,
+            )
+
+        for index, result in enumerate(results):
+            if index:
+                print()
+
+            print(render_generation_result(result))
     finally:
         await database_engine.dispose()
 
-    print(
-        "Saved generation: "
-        f"{saved_game.generation_number}"
-    )
+        if groq_client is not None:
+            await groq_client.close()
 
-    print(
-        "Database game ID: "
-        f"{saved_game.id}"
-    )
 
-    print()
+async def _resolve_experiment(
+    experiment_repository: ExperimentRepository,
+    session: AsyncSession,
+    new_experiment_name: str | None,
+    experiment_id: int | None,
+    provider_name: str,
+) -> tuple[ExperimentRecord, ExperimentDefinition, list[Agent]]:
+    if new_experiment_name is not None:
+        definition = build_default_experiment_definition()
+        experiment = await experiment_repository.create_experiment(
+            name=new_experiment_name,
+            definition=definition,
+            provider_name=provider_name,
+        )
+        return experiment, definition, list(definition.initial_agents)
 
-    for round_result in game_result.round_results:
-        candidates_by_id = {
-            candidate.id: candidate
-            for candidate in round_result.candidates
-        }
+    if experiment_id is not None:
+        experiment = await experiment_repository.get_experiment(experiment_id)
 
-        print(f"Round {round_result.round.number}")
-        print(f"Question: {round_result.round.question}")
-        print()
+        if experiment is None:
+            raise ValueError(f"Experiment {experiment_id} does not exist")
+    else:
+        experiment = await experiment_repository.get_latest_experiment()
 
-        if round_result.failed_agent_ids:
-            print("Failed agents:")
-
-            for agent_id in round_result.failed_agent_ids:
-                print(f"- {agents_by_id[agent_id].name}")
-
-            print()
-
-        print("Anonymous answers:")
-
-        for candidate in round_result.candidates:
-            print(
-                f"\n{candidate.id}:\n"
-                f"{candidate.answer.content}"
+        if experiment is None:
+            definition = build_default_experiment_definition()
+            experiment = await experiment_repository.create_experiment(
+                name="Default experiment",
+                definition=definition,
+                provider_name=provider_name,
             )
+            return experiment, definition, list(definition.initial_agents)
 
-        print()
-        print("Votes:")
-
-        for vote in round_result.votes:
-            voter = agents_by_id[vote.voter_id]
-
-            selected_candidate = candidates_by_id[
-                vote.candidate_id
-            ]
-
-            selected_agent = agents_by_id[
-                selected_candidate.answer.agent_id
-            ]
-
-            print(
-                f"- {voter.name} voted for "
-                f"{vote.candidate_id} "
-                f"({selected_agent.name})"
-            )
-
-        round_scores = (
-            convert_candidate_scores_to_agent_scores(
-                round_result.candidates,
-                round_result.scores_by_candidate_id,
-            )
+    if experiment.provider_name is None:
+        raise ExperimentConfigurationError(
+            "This imported experiment has no frozen run configuration. "
+            "Start a new experiment before running generations."
         )
 
-        print()
-        print("Round scores:")
+    if experiment.provider_name != provider_name:
+        raise ProviderConfigurationConflictError(
+            "This experiment is pinned to "
+            f"'{experiment.provider_name}', not '{provider_name}'. "
+            "Start a new experiment before changing providers."
+        )
 
-        for agent in AGENTS:
-            print(
-                f"- {agent.name}: "
-                f"{round_scores.get(agent.id, 0)}"
-            )
+    definition = await experiment_repository.load_experiment_definition(experiment.id)
 
-        print()
-        print("-" * 40)
-        print()
+    if definition is None:
+        raise ExperimentConfigurationError(
+            "This experiment has no frozen run configuration. Start a "
+            "new experiment before running generations."
+        )
 
-    print("Final leaderboard:")
+    repository = GameRepository(session, experiment.id)
+    saved_population = await repository.load_latest_population()
 
-    for agent in AGENTS:
-        score = game_result.total_scores_by_agent_id[
-            agent.id
-        ]
-
-        print(f"- {agent.name}: {score}")
-
-    eliminated_agent = agents_by_id[
-        game_result.eliminated_agent_id
-    ]
-
-    replacement_personality = (
-        game_result.replacement_agent.personality
+    return (
+        experiment,
+        definition,
+        saved_population or list(definition.initial_agents),
     )
 
-    print()
-    print(f"Eliminated agent: {eliminated_agent.name}")
 
-    print(
-        "Replacement agent: "
-        f"{game_result.replacement_agent.name}"
-    )
+async def _print_experiments(
+    experiment_repository: ExperimentRepository,
+) -> None:
+    experiments = await experiment_repository.list_experiments()
 
-    print(
-        "Replacement description: "
-        f"{replacement_personality.description}"
-    )
+    if not experiments:
+        print("No experiments have been created.")
+        return
 
-    print(
-        "Replacement answer instructions: "
-        f"{replacement_personality.answer_template}"
-    )
-
-    print()
-    print("Agents entering the next game:")
-
-    for agent in game_result.final_agents:
+    for experiment in experiments:
         print(
-            f"- {agent.name} "
-            f"({agent.id})"
+            f"{experiment.id}: {experiment.name} ({experiment.created_at.isoformat()})"
         )
+
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run AI Hunger Games generations.",
+    )
+    parser.add_argument(
+        "--generations",
+        type=positive_integer,
+        default=1,
+        help="Number of completed generations to run.",
+    )
+    experiment_group = parser.add_mutually_exclusive_group()
+    experiment_group.add_argument(
+        "--new-experiment",
+        type=nonempty_string,
+        help="Create a new experiment from the eight-agent baseline.",
+    )
+    experiment_group.add_argument(
+        "--experiment-id",
+        type=positive_integer,
+        help="Resume a specific saved experiment.",
+    )
+    parser.add_argument(
+        "--list-experiments",
+        action="store_true",
+        help="List saved experiments without running a generation.",
+    )
+
+    return parser.parse_args()
+
+
+def positive_integer(value: str) -> int:
+    try:
+        parsed_value = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be an integer") from error
+
+    if parsed_value < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+
+    return parsed_value
+
+
+def nonempty_string(value: str) -> str:
+    normalized_value = value.strip()
+
+    if not normalized_value:
+        raise argparse.ArgumentTypeError("cannot be empty")
+
+    return normalized_value
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    arguments = parse_arguments()
+    asyncio.run(
+        main(
+            arguments.generations,
+            new_experiment_name=arguments.new_experiment,
+            experiment_id=arguments.experiment_id,
+            list_experiments=arguments.list_experiments,
+        )
+    )

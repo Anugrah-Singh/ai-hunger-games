@@ -121,6 +121,75 @@ class SlowAnswerProvider:
         )
 
 
+class ConcurrencyTrackingAnswerProvider:
+    def __init__(self) -> None:
+        self.active_request_count = 0
+        self.maximum_active_request_count = 0
+
+    async def generate_answer(
+        self,
+        agent: Agent,
+        question: str,
+    ) -> Answer:
+        self.active_request_count += 1
+        self.maximum_active_request_count = max(
+            self.maximum_active_request_count,
+            self.active_request_count,
+        )
+
+        try:
+            await asyncio.sleep(0.02)
+        finally:
+            self.active_request_count -= 1
+
+        return Answer(
+            agent_id=agent.id,
+            content=f"{agent.name} answered: {question}",
+        )
+
+
+class CancellingAnswerProvider:
+    async def generate_answer(
+        self,
+        agent: Agent,
+        question: str,
+    ) -> Answer:
+        del agent, question
+        raise asyncio.CancelledError
+
+
+class SeedRecordingVoteProvider:
+    def __init__(self) -> None:
+        self.seeds: list[int] = []
+
+    async def generate_vote(
+        self,
+        voter: Agent,
+        options: list,
+        seed: int,
+    ) -> Vote:
+        self.seeds.append(seed)
+
+        return Vote(
+            voter_id=voter.id,
+            candidate_id=options[0].candidate_id,
+        )
+
+
+class UnexpectedAnswerProvider:
+    def __init__(self) -> None:
+        self.was_called = False
+
+    async def generate_answer(
+        self,
+        agent: Agent,
+        question: str,
+    ) -> Answer:
+        del agent, question
+        self.was_called = True
+        raise AssertionError("The answer provider should not be called")
+
+
 class PartiallyFailingAnswerProvider:
     def __init__(self, failing_agent_id: str) -> None:
         self.failing_agent_id = failing_agent_id
@@ -167,16 +236,12 @@ class TemporarilyFailingAnswerProvider:
         agent: Agent,
         question: str,
     ) -> Answer:
-        attempt_count = (
-            self.attempts_by_agent_id.get(agent.id, 0) + 1
-        )
+        attempt_count = self.attempts_by_agent_id.get(agent.id, 0) + 1
 
         self.attempts_by_agent_id[agent.id] = attempt_count
 
         if attempt_count <= self.failures_before_success:
-            raise RetryableProviderError(
-                "Simulated temporary provider failure"
-            )
+            raise RetryableProviderError("Simulated temporary provider failure")
 
         return Answer(
             agent_id=agent.id,
@@ -198,11 +263,22 @@ class PermanentFailureAnswerProvider:
             0,
         )
 
-        self.attempts_by_agent_id[agent.id] = (
-            current_attempts + 1
-        )
+        self.attempts_by_agent_id[agent.id] = current_attempts + 1
 
         raise ValueError("Simulated permanent failure")
+
+
+class RetryAfterFailureAnswerProvider:
+    async def generate_answer(
+        self,
+        agent: Agent,
+        question: str,
+    ) -> Answer:
+        del agent, question
+        raise RetryableProviderError(
+            "The provider asked the caller to retry later",
+            retry_after_seconds=7.5,
+        )
 
 
 def test_validate_agents_accepts_valid_agents() -> None:
@@ -223,6 +299,20 @@ def test_validate_agents_rejects_duplicate_ids() -> None:
     with pytest.raises(
         ValueError,
         match="Agent IDs must be unique",
+    ):
+        validate_agents(agents)
+
+
+def test_validate_agents_rejects_template_without_question_placeholder() -> None:
+    agents = create_test_agents()
+    agents[0].personality = Personality(
+        name="Incomplete Personality",
+        answer_template="Give a generic answer.",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="must contain \\{question\\}",
     ):
         validate_agents(agents)
 
@@ -308,10 +398,7 @@ def test_validate_answer_policy_rejects_invalid_delay_range() -> None:
 
     with pytest.raises(
         ValueError,
-        match=(
-            "Maximum retry delay cannot be less than "
-            "the initial retry delay"
-        ),
+        match=("Maximum retry delay cannot be less than the initial retry delay"),
     ):
         validate_answer_policy(policy)
 
@@ -329,15 +416,9 @@ def test_create_candidates_is_reproducible() -> None:
         seed=42,
     )
 
-    first_author_order = [
-        candidate.answer.agent_id
-        for candidate in first_candidates
-    ]
+    first_author_order = [candidate.answer.agent_id for candidate in first_candidates]
 
-    second_author_order = [
-        candidate.answer.agent_id
-        for candidate in second_candidates
-    ]
+    second_author_order = [candidate.answer.agent_id for candidate in second_candidates]
 
     assert first_author_order == second_author_order
 
@@ -352,28 +433,21 @@ def test_count_votes_calculates_candidate_scores() -> None:
     )
 
     candidate_id_by_author_id = {
-        candidate.answer.agent_id: candidate.id
-        for candidate in candidates
+        candidate.answer.agent_id: candidate.id for candidate in candidates
     }
 
     votes = [
         Vote(
             voter_id="agent_1",
-            candidate_id=candidate_id_by_author_id[
-                "agent_2"
-            ],
+            candidate_id=candidate_id_by_author_id["agent_2"],
         ),
         Vote(
             voter_id="agent_2",
-            candidate_id=candidate_id_by_author_id[
-                "agent_3"
-            ],
+            candidate_id=candidate_id_by_author_id["agent_3"],
         ),
         Vote(
             voter_id="agent_3",
-            candidate_id=candidate_id_by_author_id[
-                "agent_2"
-            ],
+            candidate_id=candidate_id_by_author_id["agent_2"],
         ),
     ]
 
@@ -383,15 +457,9 @@ def test_count_votes_calculates_candidate_scores() -> None:
         votes,
     )
 
-    agent_1_candidate_id = candidate_id_by_author_id[
-        "agent_1"
-    ]
-    agent_2_candidate_id = candidate_id_by_author_id[
-        "agent_2"
-    ]
-    agent_3_candidate_id = candidate_id_by_author_id[
-        "agent_3"
-    ]
+    agent_1_candidate_id = candidate_id_by_author_id["agent_1"]
+    agent_2_candidate_id = candidate_id_by_author_id["agent_2"]
+    agent_3_candidate_id = candidate_id_by_author_id["agent_3"]
 
     assert scores[agent_1_candidate_id] == 0
     assert scores[agent_2_candidate_id] == 2
@@ -408,15 +476,12 @@ def test_count_votes_rejects_self_vote() -> None:
     )
 
     candidate_id_by_author_id = {
-        candidate.answer.agent_id: candidate.id
-        for candidate in candidates
+        candidate.answer.agent_id: candidate.id for candidate in candidates
     }
 
     self_vote = Vote(
         voter_id="agent_1",
-        candidate_id=candidate_id_by_author_id[
-            "agent_1"
-        ],
+        candidate_id=candidate_id_by_author_id["agent_1"],
     )
 
     with pytest.raises(
@@ -440,22 +505,17 @@ def test_count_votes_rejects_duplicate_voter() -> None:
     )
 
     candidate_id_by_author_id = {
-        candidate.answer.agent_id: candidate.id
-        for candidate in candidates
+        candidate.answer.agent_id: candidate.id for candidate in candidates
     }
 
     votes = [
         Vote(
             voter_id="agent_1",
-            candidate_id=candidate_id_by_author_id[
-                "agent_2"
-            ],
+            candidate_id=candidate_id_by_author_id["agent_2"],
         ),
         Vote(
             voter_id="agent_1",
-            candidate_id=candidate_id_by_author_id[
-                "agent_3"
-            ],
+            candidate_id=candidate_id_by_author_id["agent_3"],
         ),
     ]
 
@@ -477,9 +537,7 @@ def test_find_lowest_scoring_agents_returns_all_ties() -> None:
         "agent_3": 2,
     }
 
-    lowest_scoring_agent_ids = (
-        find_lowest_scoring_agents(scores)
-    )
+    lowest_scoring_agent_ids = find_lowest_scoring_agents(scores)
 
     assert lowest_scoring_agent_ids == [
         "agent_2",
@@ -520,9 +578,7 @@ def test_replace_agent_preserves_population_size() -> None:
         name="Replacement",
         personality=Personality(
             name="Replacement Personality",
-            answer_template=(
-                "Replacement answer for {question}"
-            ),
+            answer_template=("Replacement answer for {question}"),
         ),
     )
 
@@ -532,10 +588,7 @@ def test_replace_agent_preserves_population_size() -> None:
         replacement_agent=replacement_agent,
     )
 
-    updated_agent_ids = {
-        agent.id
-        for agent in updated_agents
-    }
+    updated_agent_ids = {agent.id for agent in updated_agents}
 
     assert len(updated_agents) == len(agents)
     assert "agent_2" not in updated_agent_ids
@@ -581,14 +634,55 @@ async def test_run_game_completes_full_game_cycle() -> None:
 
     assert game_result.replacement_agent.id == "agent_4"
 
-    final_agent_ids = {
-        agent.id
-        for agent in game_result.final_agents
-    }
+    final_agent_ids = {agent.id for agent in game_result.final_agents}
 
     assert len(game_result.final_agents) == len(agents)
     assert game_result.eliminated_agent_id not in final_agent_ids
     assert "agent_4" in final_agent_ids
+
+
+@pytest.mark.asyncio
+async def test_run_game_rejects_existing_replacement_id_before_requests() -> None:
+    provider = UnexpectedAnswerProvider()
+
+    with pytest.raises(
+        ValueError,
+        match="Replacement agent ID already exists",
+    ):
+        await run_game(
+            questions=["Question one?"],
+            agents=create_test_agents(),
+            candidate_order_seed=42,
+            voting_seed=7,
+            elimination_seed=99,
+            replacement_seed=123,
+            replacement_agent_id="agent_1",
+            answer_provider=provider,
+            answer_policy=create_test_answer_policy(),
+        )
+
+    assert not provider.was_called
+
+
+@pytest.mark.asyncio
+async def test_run_game_derives_unique_vote_seeds_per_round_and_voter() -> None:
+    vote_provider = SeedRecordingVoteProvider()
+
+    await run_game(
+        questions=["Question one?", "Question two?"],
+        agents=create_test_agents(),
+        candidate_order_seed=42,
+        voting_seed=7,
+        elimination_seed=99,
+        replacement_seed=123,
+        replacement_agent_id="agent_4",
+        answer_provider=SimulatedAnswerProvider(),
+        answer_policy=create_test_answer_policy(),
+        vote_provider=vote_provider,
+    )
+
+    assert len(vote_provider.seeds) == 6
+    assert len(set(vote_provider.seeds)) == 6
 
 
 @pytest.mark.asyncio
@@ -616,6 +710,61 @@ async def test_generate_answers_runs_concurrently() -> None:
 
 
 @pytest.mark.asyncio
+async def test_generate_answers_respects_concurrency_limit() -> None:
+    provider = ConcurrencyTrackingAnswerProvider()
+    policy = AnswerGenerationPolicy(
+        timeout_seconds=1.0,
+        minimum_successful_answers=2,
+        maximum_attempts=1,
+        initial_retry_delay_seconds=0,
+        maximum_retry_delay_seconds=0,
+        maximum_concurrent_requests=2,
+    )
+
+    answer_batch = await generate_answers(
+        agents=create_test_agents(),
+        question="What makes a good team?",
+        provider=provider,
+        policy=policy,
+    )
+
+    assert len(answer_batch.answers) == 3
+    assert provider.maximum_active_request_count == 2
+
+
+@pytest.mark.asyncio
+async def test_generate_answers_propagates_cancellation() -> None:
+    with pytest.raises(asyncio.CancelledError):
+        await generate_answers(
+            agents=create_test_agents(),
+            question="What makes a good team?",
+            provider=CancellingAnswerProvider(),
+            policy=create_test_answer_policy(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_simulated_answers_replace_only_question_placeholder() -> None:
+    agent = Agent(
+        id="agent_1",
+        name="Literal Template Tester",
+        personality=Personality(
+            name="Literal Template Tester",
+            answer_template=("Keep {other_braces} literal while answering {question}"),
+        ),
+    )
+
+    answer = await SimulatedAnswerProvider().generate_answer(
+        agent=agent,
+        question="this question",
+    )
+
+    assert answer.content == (
+        "Keep {other_braces} literal while answering this question"
+    )
+
+
+@pytest.mark.asyncio
 async def test_generate_answers_records_timeouts() -> None:
     agents = create_test_agents()
 
@@ -637,6 +786,11 @@ async def test_generate_answers_records_timeouts() -> None:
         "agent_2",
         "agent_3",
     }
+    assert {failure.error_type for failure in answer_batch.failures} == {
+        "AnswerGenerationTimeoutError"
+    }
+    assert {failure.attempt_count for failure in answer_batch.failures} == {1}
+    assert all(failure.retry_after_seconds is None for failure in answer_batch.failures)
 
 
 @pytest.mark.asyncio
@@ -664,25 +818,20 @@ async def test_run_round_continues_after_one_failure() -> None:
     assert len(round_result.candidates) == 2
     assert len(round_result.votes) == 2
 
-    participating_agent_ids = {
-        answer.agent_id
-        for answer in round_result.answers
-    }
+    participating_agent_ids = {answer.agent_id for answer in round_result.answers}
 
     assert participating_agent_ids == {
         "agent_1",
         "agent_2",
     }
 
-    assert all(
-        answer.agent_id != "agent_3"
-        for answer in round_result.answers
-    )
+    assert all(answer.agent_id != "agent_3" for answer in round_result.answers)
 
-    assert all(
-        vote.voter_id != "agent_3"
-        for vote in round_result.votes
-    )
+    assert all(vote.voter_id != "agent_3" for vote in round_result.votes)
+    assert len(round_result.failures) == 1
+    assert round_result.failures[0].agent_id == "agent_3"
+    assert round_result.failures[0].error_type == "RuntimeError"
+    assert round_result.failures[0].attempt_count == 1
 
 
 @pytest.mark.asyncio
@@ -719,9 +868,7 @@ async def test_generate_answers_retries_temporary_failures() -> None:
         agents=agents,
         question="What makes a good team?",
         provider=provider,
-        policy=create_retry_test_policy(
-            maximum_attempts=3
-        ),
+        policy=create_retry_test_policy(maximum_attempts=3),
     )
 
     assert len(answer_batch.answers) == len(agents)
@@ -732,6 +879,7 @@ async def test_generate_answers_retries_temporary_failures() -> None:
         "agent_2": 3,
         "agent_3": 3,
     }
+    assert {answer.attempt_count for answer in answer_batch.answers} == {3}
 
 
 @pytest.mark.asyncio
@@ -746,9 +894,7 @@ async def test_generate_answers_records_exhausted_retries() -> None:
         agents=agents,
         question="What makes a good team?",
         provider=provider,
-        policy=create_retry_test_policy(
-            maximum_attempts=3
-        ),
+        policy=create_retry_test_policy(maximum_attempts=3),
     )
 
     assert answer_batch.answers == []
@@ -764,6 +910,25 @@ async def test_generate_answers_records_exhausted_retries() -> None:
         "agent_2": 3,
         "agent_3": 3,
     }
+    assert {failure.error_type for failure in answer_batch.failures} == {
+        "RetryableProviderError"
+    }
+    assert {failure.attempt_count for failure in answer_batch.failures} == {3}
+    assert all(failure.retry_after_seconds is None for failure in answer_batch.failures)
+
+
+@pytest.mark.asyncio
+async def test_generate_answers_preserves_provider_retry_after_on_failure() -> None:
+    answer_batch = await generate_answers(
+        agents=create_test_agents(),
+        question="What makes a good team?",
+        provider=RetryAfterFailureAnswerProvider(),
+        policy=create_retry_test_policy(maximum_attempts=1),
+    )
+
+    assert answer_batch.answers == []
+    assert {failure.retry_after_seconds for failure in answer_batch.failures} == {7.5}
+    assert {failure.attempt_count for failure in answer_batch.failures} == {1}
 
 
 @pytest.mark.asyncio
@@ -775,9 +940,7 @@ async def test_generate_answers_does_not_retry_permanent_errors() -> None:
         agents=agents,
         question="What makes a good team?",
         provider=provider,
-        policy=create_retry_test_policy(
-            maximum_attempts=3
-        ),
+        policy=create_retry_test_policy(maximum_attempts=3),
     )
 
     assert answer_batch.answers == []

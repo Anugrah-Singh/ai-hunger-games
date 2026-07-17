@@ -18,6 +18,7 @@ def create_test_voter() -> Agent:
         name="Agent One",
         personality=Personality(
             name="Analytical Judge",
+            description="Prioritizes evidence and explicit tradeoffs.",
             answer_template="Answer {question}",
         ),
     )
@@ -83,5 +84,7 @@ def test_vote_prompt_contains_only_anonymous_options() -> None:
     assert "candidate_2" in prompt
     assert "First anonymous answer" in prompt
     assert "Second anonymous answer" in prompt
+    assert "Prioritizes evidence and explicit tradeoffs." in prompt
+    assert "Answer {question}" in prompt
 
     assert "agent_1" not in prompt

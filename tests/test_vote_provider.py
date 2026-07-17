@@ -59,6 +59,7 @@ def create_test_answers() -> list[Answer]:
         ),
     ]
 
+
 def create_test_vote_policy() -> VoteGenerationPolicy:
     return VoteGenerationPolicy(
         timeout_seconds=1.0,
@@ -66,6 +67,7 @@ def create_test_vote_policy() -> VoteGenerationPolicy:
         initial_retry_delay_seconds=0,
         maximum_retry_delay_seconds=0,
     )
+
 
 class FirstOptionVoteProvider:
     async def generate_vote(
@@ -121,14 +123,10 @@ def test_create_vote_options_excludes_own_answer() -> None:
         candidates=candidates,
     )
 
-    candidate_by_id = {
-        candidate.id: candidate
-        for candidate in candidates
-    }
+    candidate_by_id = {candidate.id: candidate for candidate in candidates}
 
     selected_author_ids = {
-        candidate_by_id[option.candidate_id].answer.agent_id
-        for option in options
+        candidate_by_id[option.candidate_id].answer.agent_id for option in options
     }
 
     assert voter.id not in selected_author_ids
@@ -176,13 +174,7 @@ async def test_generate_votes_creates_one_vote_per_agent() -> None:
 
     assert len(votes) == len(agents)
 
-    assert {
-        vote.voter_id
-        for vote in votes
-    } == {
-        agent.id
-        for agent in agents
-    }
+    assert {vote.voter_id for vote in votes} == {agent.id for agent in agents}
 
 
 @pytest.mark.asyncio
@@ -204,19 +196,13 @@ async def test_generate_votes_never_offers_own_answer() -> None:
         policy=create_test_vote_policy(),
     )
 
-    candidates_by_id = {
-        candidate.id: candidate
-        for candidate in candidates
-    }
+    candidates_by_id = {candidate.id: candidate for candidate in candidates}
 
     for voter in agents:
         options = provider.options_by_voter_id[voter.id]
 
         option_author_ids = {
-            candidates_by_id[
-                option.candidate_id
-            ].answer.agent_id
-            for option in options
+            candidates_by_id[option.candidate_id].answer.agent_id for option in options
         }
 
         assert voter.id not in option_author_ids
