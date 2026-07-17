@@ -159,23 +159,24 @@ export function ShowcaseTab({
 
   return (
     <Theme
-      accentColor="cyan"
-      appearance="dark"
-      grayColor="slate"
+      accentColor="teal"
+      appearance="light"
+      grayColor="sage"
       hasBackground={false}
-      radius="large"
+      radius="small"
       scaling="100%"
     >
       <LazyMotion features={domAnimation} strict>
         <MotionConfig reducedMotion="user">
           <section className="recruiter-overview" aria-labelledby="showcase-title">
-            <m.section
-              className="showcase-hero"
-              animate={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 1, y: 6 }}
-              transition={{ duration: 0.34, ease: "easeOut" }}
-              style={{ position: 'relative', overflow: 'hidden' }}
-            >
+            <Theme appearance="dark" accentColor="cyan" grayColor="slate" hasBackground={false} asChild>
+              <m.section
+                className="showcase-hero"
+                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 1, y: 6 }}
+                transition={{ duration: 0.34, ease: "easeOut" }}
+                style={{ position: 'relative', overflow: 'hidden' }}
+              >
               {init && (
                 <Particles
                   id="tsparticles"
@@ -288,6 +289,7 @@ export function ShowcaseTab({
                 </dl>
               </div>
             </m.section>
+            </Theme>
 
             <m.section
               className="showcase-section showcase-proof"
