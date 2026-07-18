@@ -1,23 +1,17 @@
-import { useEffect, useState } from "react";
-import {
-  Badge,
-  Button,
-  Callout,
-  Card,
-  DataList,
-  Theme,
-} from "@radix-ui/themes";
 import {
   ArrowRight,
   ArrowUpRight,
   BarChart3,
+  BrainCircuit,
   Database,
   Gauge,
   GitBranch,
-  Info,
+  Layers3,
   MessageSquare,
   RefreshCcw,
+  ServerCog,
   ShieldCheck,
+  Sparkles,
   Users,
   Vote,
   Workflow,
@@ -25,23 +19,19 @@ import {
 } from "lucide-react";
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
 import * as m from "motion/react-m";
-import Particles, { initParticlesEngine } from "@tsparticles/react";
-import { loadSlim } from "@tsparticles/slim";
-import Tilt from "react-parallax-tilt";
 
 import type {
   ExperimentAnalysis,
   ExperimentDetail,
   GenerationSummary,
 } from "../api/types";
-
+import { SectionHeading } from "./common";
 
 export type ShowcaseDestination =
   | "overview"
   | "rounds"
   | "relationships"
   | "lineage";
-
 
 interface ShowcaseTabProps {
   agentName: (agentId: string) => string;
@@ -51,86 +41,89 @@ interface ShowcaseTabProps {
   onTabChange: (view: ShowcaseDestination) => void;
 }
 
-
 interface ExperimentStage {
   description: string;
   icon: LucideIcon;
   title: string;
 }
 
-
 const proofLabels = [
-  "Python",
-  "Async orchestration",
+  "Python 3.14",
   "FastAPI",
-  "React + TypeScript",
-  "SQLAlchemy",
-  "Alembic",
-  "Automated tests",
+  "React 19 + TypeScript",
+  "SQLAlchemy + Alembic",
+  "Async orchestration",
+  "33+ automated tests",
 ];
-
 
 const stages: ExperimentStage[] = [
   {
-    description: "Distinct prompt instructions form a competing population.",
+    description: "Eight reasoning profiles enter a reproducible experiment definition.",
     icon: Users,
-    title: "Personalities",
+    title: "Population",
   },
   {
-    description: "Agents answer concurrently with timeouts and retry ownership.",
+    description: "Providers generate answers concurrently with explicit timeout and retry policies.",
     icon: MessageSquare,
-    title: "Answers",
+    title: "Generation",
   },
   {
-    description: "Answers become shuffled candidates with no author identity exposed.",
+    description: "Candidate IDs replace author identities before any evaluator sees an answer.",
     icon: ShieldCheck,
-    title: "Anonymous set",
+    title: "Anonymization",
   },
   {
-    description: "Eligible voters choose sequentially to respect constrained provider limits.",
+    description: "Eligible agents evaluate the anonymous set without being allowed to self-vote.",
     icon: Vote,
-    title: "Votes",
+    title: "Evaluation",
   },
   {
-    description: "Scores and complete historical snapshots commit atomically.",
+    description: "Rounds, scores, retries, and provider failures commit as one durable snapshot.",
     icon: Database,
-    title: "History",
+    title: "Persistence",
   },
   {
-    description: "The lowest scorer leaves and a generated personality joins next time.",
+    description: "The lowest scorer exits and a generated personality enters the next generation.",
     icon: RefreshCcw,
-    title: "Replacement",
+    title: "Evolution",
   },
 ];
-
 
 const decisions = [
   {
     detail:
-      "Vote providers receive candidate IDs and answer text, never an answer author ID. The UI follows that same constraint.",
+      "Vote providers receive candidate IDs and answer text, never an answer-author identifier. The browser API preserves the same invariant.",
     icon: ShieldCheck,
-    title: "Anonymous evaluation",
+    title: "Anonymous by architecture",
   },
   {
     detail:
-      "The engine owns timeouts, exponential backoff, and provider retry-after delays so retries remain observable and predictable.",
+      "The engine owns timeouts, exponential backoff, and provider retry-after delays so reliability remains visible and testable.",
     icon: Gauge,
-    title: "Explicit reliability boundaries",
+    title: "One retry owner",
   },
   {
     detail:
-      "A generation is saved as one transaction with agent, round, vote, score, and replacement snapshots for reproducible analysis.",
+      "Every generation is an atomic historical record with agents, rounds, votes, scores, random seeds, and replacement lineage.",
     icon: Database,
-    title: "Durable experimental history",
+    title: "Reproducible history",
   },
   {
     detail:
-      "Relationship metrics compare observed votes with eligibility and random baselines; they are indicators, not proof of coordination.",
+      "Relationship metrics compare observed votes with eligibility-aware random baselines and avoid claiming unsupported coordination.",
     icon: GitBranch,
-    title: "Measured claims",
+    title: "Evidence before claims",
   },
 ];
 
+const architectureNodes = [
+  { icon: Layers3, label: "React dashboard", note: "Typed, query-driven UI" },
+  { icon: ServerCog, label: "FastAPI", note: "Pydantic API boundary" },
+  { icon: Workflow, label: "Generation runner", note: "Durable orchestration" },
+  { icon: BrainCircuit, label: "Engine + providers", note: "Rules, retries, anonymity" },
+  { icon: Database, label: "SQLAlchemy + Alembic", note: "Atomic experiment history" },
+  { icon: BarChart3, label: "Analysis", note: "Deterministic metrics" },
+];
 
 export function ShowcaseTab({
   agentName,
@@ -139,16 +132,6 @@ export function ShowcaseTab({
   generations,
   onTabChange,
 }: ShowcaseTabProps) {
-  const [init, setInit] = useState(false);
-
-  useEffect(() => {
-    initParticlesEngine(async (engine) => {
-      await loadSlim(engine);
-    }).then(() => {
-      setInit(true);
-    });
-  }, []);
-
   const latestGeneration = generations.at(-1);
   const persistedRounds = generations.reduce(
     (total, generation) => total + generation.round_count,
@@ -158,314 +141,205 @@ export function ShowcaseTab({
     ?? "A completed generation demonstrates the workflow, not a durable behavioral pattern.";
 
   return (
-    <Theme
-      accentColor="teal"
-      appearance="light"
-      grayColor="sage"
-      hasBackground={false}
-      radius="small"
-      scaling="100%"
-    >
-      <LazyMotion features={domAnimation} strict>
-        <MotionConfig reducedMotion="user">
-          <section className="recruiter-overview" aria-labelledby="showcase-title">
-            <Theme appearance="dark" accentColor="cyan" grayColor="slate" hasBackground={false} asChild>
-              <m.section
-                className="showcase-hero"
-                animate={{ opacity: 1, y: 0 }}
-                initial={{ opacity: 1, y: 6 }}
-                transition={{ duration: 0.34, ease: "easeOut" }}
-                style={{ position: 'relative', overflow: 'hidden' }}
-              >
-              {init && (
-                <Particles
-                  id="tsparticles"
-                  options={{
-                    fullScreen: { enable: false, zIndex: 0 },
-                    background: { color: { value: "transparent" } },
-                    fpsLimit: 120,
-                    interactivity: {
-                      events: {
-                        onHover: { enable: true, mode: "repulse" },
-                      },
-                      modes: { repulse: { distance: 100, duration: 0.4 } },
-                    },
-                    particles: {
-                      color: { value: "#0ea5e9" },
-                      links: {
-                        color: "#0ea5e9",
-                        distance: 150,
-                        enable: true,
-                        opacity: 0.2,
-                        width: 1,
-                      },
-                      move: {
-                        direction: "none",
-                        enable: true,
-                        outModes: { default: "bounce" },
-                        random: false,
-                        speed: 1,
-                        straight: false,
-                      },
-                      number: {
-                        density: { enable: true, width: 800, height: 800 },
-                        value: 80,
-                      },
-                      opacity: { value: 0.4 },
-                      shape: { type: "circle" },
-                      size: { value: { min: 1, max: 3 } },
-                    },
-                    detectRetina: true,
-                  }}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    zIndex: 0,
-                  }}
-                />
-              )}
-              <img
-                alt=""
-                aria-hidden="true"
-                className="showcase-hero-mark"
-                src="/static/arena-mark.png"
-                style={{ zIndex: 1 }}
-              />
-              <div className="showcase-hero-content" style={{ position: 'relative', zIndex: 1 }}>
-                <Badge color="cyan" size="2" variant="surface">
-                  Portfolio case study
-                </Badge>
-                <p className="showcase-kicker">Multi-agent experiment platform</p>
-                <h1 id="showcase-title">AI Hunger Games</h1>
-                <p className="showcase-lede">
-                  A durable experiment for testing how LLM-driven personalities
-                  answer, vote, compete, and change across persisted generations.
-                </p>
-                <div className="showcase-hero-actions">
-                  <Button onClick={() => onTabChange("overview")} size="3">
-                    Explore live experiment
-                    <ArrowRight aria-hidden="true" size={16} />
-                  </Button>
-                  <Button
-                    asChild
-                    color="gray"
-                    size="3"
-                    variant="surface"
-                  >
-                    <a
-                      href="https://github.com/Anugrah-Singh/ai-hunger-games"
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      View source
-                      <ArrowUpRight aria-hidden="true" size={16} />
-                    </a>
-                  </Button>
-                </div>
-                <dl className="showcase-evidence-strip">
-                  <div>
-                    <dt>Latest record</dt>
-                    <dd>
-                      {latestGeneration
-                        ? `Generation ${latestGeneration.generation_number}`
-                        : "Awaiting first generation"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Active population</dt>
-                    <dd>{experiment.current_population.length} agents</dd>
-                  </div>
-                  <div>
-                    <dt>Persisted rounds</dt>
-                    <dd>{persistedRounds}</dd>
-                  </div>
-                  <div>
-                    <dt>Provider</dt>
-                    <dd>{experiment.provider_name ?? "Configured at runtime"}</dd>
-                  </div>
-                </dl>
-              </div>
-            </m.section>
-            </Theme>
-
-            <m.section
-              className="showcase-section showcase-proof"
-              animate={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 1, y: 6 }}
-              transition={{ duration: 0.34, ease: "easeOut", delay: 0.04 }}
-            >
-              <div className="showcase-section-heading">
-                <div>
-                  <p className="eyebrow">Evidence of scope</p>
-                  <h2>Built as an experiment, not a scripted demo</h2>
-                </div>
-                <Workflow aria-hidden="true" size={22} />
-              </div>
-              <ul className="showcase-proof-rail" aria-label="Technology and practice evidence">
-                {proofLabels.map((label) => (
-                  <li key={label}>
-                    <Badge color="teal" size="2" variant="surface">
-                      {label}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            </m.section>
-
-            <m.section
-              className="showcase-section showcase-flow-section"
-              animate={{ opacity: 1, y: 0 }}
-              initial={{ opacity: 1, y: 6 }}
-              transition={{ duration: 0.34, ease: "easeOut", delay: 0.08 }}
-            >
-              <div className="showcase-section-heading">
-                <div>
-                  <p className="eyebrow">Generation loop</p>
-                  <h2>One traceable system, six deliberate stages</h2>
-                </div>
-              </div>
-              <ol className="showcase-flow">
-                {stages.map((stage, index) => {
-                  const Icon = stage.icon;
-
-                  return (
-                    <li key={stage.title}>
-                      <span className="showcase-stage-number">0{index + 1}</span>
-                      <span className="showcase-stage-icon">
-                        <Icon aria-hidden="true" size={18} />
-                      </span>
-                      <div>
-                        <h3>{stage.title}</h3>
-                        <p>{stage.description}</p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            </m.section>
-
-            <section className="showcase-outcome-grid">
-              <Tilt tiltMaxAngleX={5} tiltMaxAngleY={5} perspective={1000} scale={1.02} transitionSpeed={2500} className="showcase-tilt-wrapper">
-                <Card className="showcase-outcome-card" size="3" variant="surface">
-                <div className="showcase-section-heading">
-                  <div>
-                    <p className="eyebrow">Latest persisted outcome</p>
-                    <h2>Inspectable, not simulated</h2>
-                  </div>
-                  <BarChart3 aria-hidden="true" size={22} />
-                </div>
-                <DataList.Root className="showcase-data-list" orientation="horizontal">
-                  <DataList.Item>
-                    <DataList.Label minWidth="132px">Generation</DataList.Label>
-                    <DataList.Value>
-                      {latestGeneration
-                        ? `Generation ${latestGeneration.generation_number}`
-                        : "No completed generation"}
-                    </DataList.Value>
-                  </DataList.Item>
-                  <DataList.Item>
-                    <DataList.Label minWidth="132px">Eliminated</DataList.Label>
-                    <DataList.Value>
-                      {latestGeneration
-                        ? agentName(latestGeneration.eliminated_agent_id)
-                        : "Not available"}
-                    </DataList.Value>
-                  </DataList.Item>
-                  <DataList.Item>
-                    <DataList.Label minWidth="132px">Replacement</DataList.Label>
-                    <DataList.Value>
-                      {latestGeneration
-                        ? `${latestGeneration.replacement_agent.agent_name} (${latestGeneration.replacement_agent.personality.name})`
-                        : "Not available"}
-                    </DataList.Value>
-                  </DataList.Item>
-                  <DataList.Item>
-                    <DataList.Label minWidth="132px">Population</DataList.Label>
-                    <DataList.Value>
-                      {experiment.current_population.length} active agents
-                    </DataList.Value>
-                  </DataList.Item>
-                </DataList.Root>
-              </Card>
-            </Tilt>
-
-              <Callout.Root className="showcase-caution" color="amber" size="2" variant="surface">
-                <Callout.Icon>
-                  <Info aria-hidden="true" size={18} />
-                </Callout.Icon>
-                <Callout.Text>
-                  <strong>Evidence boundary. </strong>
-                  {caution}
-                </Callout.Text>
-              </Callout.Root>
-            </section>
-
-            <section className="showcase-section showcase-decisions" id="architecture">
-              <div className="showcase-section-heading">
-                <div>
-                  <p className="eyebrow">Engineering decisions</p>
-                  <h2>Design choices with visible consequences</h2>
-                </div>
-              </div>
-              <div className="showcase-decision-grid">
-                {decisions.map((decision) => {
-                  const Icon = decision.icon;
-
-                  return (
-                    <article className="showcase-decision" key={decision.title}>
-                      <span className="showcase-decision-icon">
-                        <Icon aria-hidden="true" size={19} />
-                      </span>
-                      <div>
-                        <h3>{decision.title}</h3>
-                        <p>{decision.detail}</p>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="showcase-section showcase-next-steps">
-              <div className="showcase-section-heading">
-                <div>
-                  <p className="eyebrow">Inspect the evidence</p>
-                  <h2>Move from the case study into the live record</h2>
-                </div>
-              </div>
-              <div className="showcase-paths">
-                <Button
-                  color="gray"
-                  onClick={() => onTabChange("rounds")}
-                  variant="surface"
+    <LazyMotion features={domAnimation} strict>
+      <MotionConfig reducedMotion="user">
+        <section className="recruiter-overview" aria-labelledby="showcase-title">
+          <m.section
+            className="showcase-hero"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          >
+            <div className="hero-grid" aria-hidden="true" />
+            <div className="hero-orb hero-orb-one" aria-hidden="true" />
+            <div className="hero-orb hero-orb-two" aria-hidden="true" />
+            <div className="showcase-hero-content">
+              <span className="hero-badge">
+                <Sparkles aria-hidden="true" size={14} />
+                Portfolio-grade AI evaluation platform
+              </span>
+              <p className="showcase-kicker">Multi-agent experiment system</p>
+              <h1 id="showcase-title">AI Hunger Games</h1>
+              <p className="showcase-lede">
+                Eight LLM-driven personalities answer anonymously, judge peers,
+                accumulate evidence, and evolve through persisted generations.
+              </p>
+              <div className="showcase-hero-actions">
+                <button
+                  className="hero-primary"
+                  onClick={() => onTabChange("overview")}
+                  type="button"
                 >
-                  Inspect anonymous rounds
-                  <ArrowRight aria-hidden="true" size={15} />
-                </Button>
-                <Button
-                  color="gray"
-                  onClick={() => onTabChange("relationships")}
-                  variant="surface"
+                  Explore live experiment
+                  <ArrowRight aria-hidden="true" size={17} />
+                </button>
+                <a
+                  className="hero-secondary"
+                  href="https://github.com/Anugrah-Singh/ai-hunger-games"
+                  rel="noreferrer"
+                  target="_blank"
                 >
-                  Compare voting signals
-                  <ArrowRight aria-hidden="true" size={15} />
-                </Button>
-                <Button
-                  color="gray"
-                  onClick={() => onTabChange("lineage")}
-                  variant="surface"
-                >
-                  Trace replacement lineage
-                  <ArrowRight aria-hidden="true" size={15} />
-                </Button>
+                  View source
+                  <ArrowUpRight aria-hidden="true" size={16} />
+                </a>
               </div>
-            </section>
+              <dl className="showcase-evidence-strip">
+                <div>
+                  <dt>Latest record</dt>
+                  <dd>
+                    {latestGeneration
+                      ? `Generation ${latestGeneration.generation_number}`
+                      : "Awaiting first generation"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Active population</dt>
+                  <dd>{experiment.current_population.length} agents</dd>
+                </div>
+                <div>
+                  <dt>Persisted rounds</dt>
+                  <dd>{persistedRounds}</dd>
+                </div>
+                <div>
+                  <dt>Provider</dt>
+                  <dd>{experiment.provider_name ?? "Configured at runtime"}</dd>
+                </div>
+              </dl>
+            </div>
+            <div className="hero-system-card" aria-label="Experiment system summary">
+              <div className="system-card-header">
+                <span className="status-dot" />
+                <span>Experiment pipeline</span>
+                <span className="mono-label">LIVE DATA</span>
+              </div>
+              {stages.map((stage, index) => {
+                const Icon = stage.icon;
+                return (
+                  <div className="system-step" key={stage.title}>
+                    <span className="system-step-index">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="system-step-icon"><Icon aria-hidden="true" size={16} /></span>
+                    <span>{stage.title}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </m.section>
+
+          <section className="showcase-section">
+            <SectionHeading
+              eyebrow="Evidence of scope"
+              title="Built as an experiment platform, not a chat wrapper"
+              description="The project combines AI evaluation, durable orchestration, statistical analysis, and a production-style full-stack interface."
+            />
+            <ul className="proof-cloud" aria-label="Technology and practice evidence">
+              {proofLabels.map((label) => <li key={label}>{label}</li>)}
+            </ul>
           </section>
-        </MotionConfig>
-      </LazyMotion>
-    </Theme>
+
+          <section className="showcase-section architecture-section" id="architecture">
+            <SectionHeading
+              eyebrow="System architecture"
+              title="One traceable path from interface to evidence"
+              description="Each boundary has a narrow responsibility, which keeps provider behavior, game rules, persistence, and analysis independently testable."
+            />
+            <div className="architecture-flow">
+              {architectureNodes.map((node, index) => {
+                const Icon = node.icon;
+                return (
+                  <div className="architecture-node-wrap" key={node.label}>
+                    <article className="architecture-node">
+                      <span><Icon aria-hidden="true" size={20} /></span>
+                      <strong>{node.label}</strong>
+                      <p>{node.note}</p>
+                    </article>
+                    {index < architectureNodes.length - 1 && (
+                      <span className="architecture-connector" aria-hidden="true">
+                        <ArrowRight size={16} />
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="showcase-section">
+            <SectionHeading
+              eyebrow="Generation loop"
+              title="Six deliberate stages"
+              description="The user-visible workflow mirrors the actual engine rather than presenting decorative or invented phases."
+            />
+            <ol className="showcase-flow">
+              {stages.map((stage, index) => {
+                const Icon = stage.icon;
+                return (
+                  <li key={stage.title}>
+                    <span className="showcase-stage-number">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="showcase-stage-icon"><Icon aria-hidden="true" size={18} /></span>
+                    <div>
+                      <h3>{stage.title}</h3>
+                      <p>{stage.description}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+
+          <section className="showcase-outcome-grid">
+            <article className="showcase-outcome-card">
+              <div className="outcome-card-header">
+                <div>
+                  <p className="eyebrow">Latest persisted outcome</p>
+                  <h2>Inspect real experiment history</h2>
+                </div>
+                <BarChart3 aria-hidden="true" size={22} />
+              </div>
+              <dl className="outcome-list">
+                <div><dt>Generation</dt><dd>{latestGeneration ? latestGeneration.generation_number : "—"}</dd></div>
+                <div><dt>Eliminated</dt><dd>{latestGeneration ? agentName(latestGeneration.eliminated_agent_id) : "Not available"}</dd></div>
+                <div><dt>Replacement</dt><dd>{latestGeneration ? `${latestGeneration.replacement_agent.agent_name} (${latestGeneration.replacement_agent.personality.name})` : "Not available"}</dd></div>
+                <div><dt>Population</dt><dd>{experiment.current_population.length} active agents</dd></div>
+              </dl>
+            </article>
+            <aside className="evidence-boundary">
+              <span><ShieldCheck aria-hidden="true" size={20} /></span>
+              <div>
+                <p className="eyebrow">Evidence boundary</p>
+                <h2>Measured, not sensationalized</h2>
+                <p>{caution}</p>
+              </div>
+            </aside>
+          </section>
+
+          <section className="showcase-section">
+            <SectionHeading
+              eyebrow="Engineering decisions"
+              title="Design choices with visible consequences"
+            />
+            <div className="showcase-decision-grid">
+              {decisions.map((decision) => {
+                const Icon = decision.icon;
+                return (
+                  <article className="showcase-decision" key={decision.title}>
+                    <span className="showcase-decision-icon"><Icon aria-hidden="true" size={19} /></span>
+                    <div><h3>{decision.title}</h3><p>{decision.detail}</p></div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="showcase-section showcase-next-steps">
+            <SectionHeading eyebrow="Inspect the evidence" title="Move from the case study into the live record" />
+            <div className="showcase-paths">
+              <button onClick={() => onTabChange("rounds")} type="button">Inspect anonymous rounds <ArrowRight size={15} /></button>
+              <button onClick={() => onTabChange("relationships")} type="button">Compare voting signals <ArrowRight size={15} /></button>
+              <button onClick={() => onTabChange("lineage")} type="button">Trace replacement lineage <ArrowRight size={15} /></button>
+            </div>
+          </section>
+        </section>
+      </MotionConfig>
+    </LazyMotion>
   );
 }

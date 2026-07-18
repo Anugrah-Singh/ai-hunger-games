@@ -26,6 +26,7 @@ import {
   ErrorState,
   IconButton,
   LoadingState,
+  RunProgress,
 } from "./components/common";
 import { errorMessage, formatDate } from "./lib/format";
 import { defaultExperimentId } from "./lib/selection";
@@ -387,6 +388,8 @@ function ExperimentView({
         </div>
       </section>
 
+      {isRunning && <RunProgress />}
+
       <Tabs.Root
         onValueChange={(value) => {
           if (isViewTab(value)) {
@@ -461,17 +464,41 @@ function EmptyState({
   onNewExperiment: () => void;
 }) {
   return (
-    <section className="empty-state">
-      <h1>No experiment selected</h1>
-      <button
-        className="primary-button"
-        disabled={isBusy}
-        onClick={onNewExperiment}
-        type="button"
-      >
-        <Plus aria-hidden="true" size={15} />
-        New experiment
-      </button>
+    <section className="empty-portfolio">
+      <div className="empty-portfolio-grid" aria-hidden="true" />
+      <span className="hero-badge">Portfolio demo workspace</span>
+      <p className="eyebrow">AI evaluation platform</p>
+      <h1>Explore how eight LLM personalities compete and evolve.</h1>
+      <p>
+        Create a local simulated experiment to populate the score trends,
+        anonymous rounds, relationship matrix, and replacement lineage without
+        using a paid model request.
+      </p>
+      <div className="empty-actions">
+        <button
+          className="primary-button"
+          disabled={isBusy}
+          onClick={onNewExperiment}
+          type="button"
+        >
+          <Plus aria-hidden="true" size={15} />
+          Create demo experiment
+        </button>
+        <a
+          className="secondary-button link-button"
+          href="https://github.com/Anugrah-Singh/ai-hunger-games"
+          rel="noreferrer"
+          target="_blank"
+        >
+          View source
+        </a>
+      </div>
+      <div className="empty-proof-grid">
+        <article><strong>8</strong><span>distinct agents</span></article>
+        <article><strong>8</strong><span>rounds per generation</span></article>
+        <article><strong>10</strong><span>Alembic migrations</span></article>
+        <article><strong>Full stack</strong><span>FastAPI + React</span></article>
+      </div>
     </section>
   );
 }
