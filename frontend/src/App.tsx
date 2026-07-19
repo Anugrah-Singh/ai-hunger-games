@@ -1,10 +1,15 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import { Play, Plus, RefreshCw, Wifi } from "lucide-react";
+  BarChart3,
+  Clapperboard,
+  Eye,
+  Play,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Wifi,
+} from "lucide-react";
 import { Tabs, Tooltip } from "radix-ui";
 
 import {
@@ -20,6 +25,7 @@ import type {
   ExperimentDetail,
   GenerationSummary,
 } from "./api/types";
+import { ArenaView, type ArenaMode } from "./components/ArenaView";
 import { ExperimentSidebar } from "./components/ExperimentSidebar";
 import { NewExperimentDialog } from "./components/NewExperimentDialog";
 import {
@@ -30,7 +36,6 @@ import {
 } from "./components/common";
 import { errorMessage, formatDate } from "./lib/format";
 import { defaultExperimentId } from "./lib/selection";
-
 
 const OverviewTab = lazy(async () => ({
   default: (await import("./components/OverviewTab")).OverviewTab,
@@ -48,34 +53,36 @@ const ShowcaseTab = lazy(async () => ({
   default: (await import("./components/ShowcaseTab")).ShowcaseTab,
 }));
 
+const experienceModes = [
+  { icon: Eye, label: "Watch", value: "watch" },
+  { icon: Clapperboard, label: "Replay", value: "replay" },
+  { icon: BarChart3, label: "Analyze", value: "analyze" },
+] as const;
 
-const viewTabs = [
-  { label: "Showcase", value: "showcase" },
+type ExperienceMode = (typeof experienceModes)[number]["value"];
+
+const analysisTabs = [
   { label: "Overview", value: "overview" },
   { label: "Rounds", value: "rounds" },
   { label: "Relationships", value: "relationships" },
   { label: "Lineage", value: "lineage" },
+  { label: "About", value: "showcase" },
 ] as const;
 
-type ViewTab = (typeof viewTabs)[number]["value"];
-
+type AnalysisTab = (typeof analysisTabs)[number]["value"];
 
 interface ToastState {
   isError: boolean;
   message: string;
 }
 
-
 export function App() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<ViewTab>("showcase");
+  const [experienceMode, setExperienceMode] = useState<ExperienceMode>("watch");
+  const [analysisTab, setAnalysisTab] = useState<AnalysisTab>("overview");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedExperimentId, setSelectedExperimentId] = useState<number | null>(
-    null,
-  );
-  const [selectedGenerationId, setSelectedGenerationId] = useState<number | null>(
-    null,
-  );
+  const [selectedExperimentId, setSelectedExperimentId] = useState<number | null>(null);
+  const [selectedGenerationId, setSelectedGenerationId] = useState<number | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const experimentsQuery = useQuery({
@@ -100,7 +107,6 @@ export function App() {
 
   useEffect(() => {
     const experiments = experimentsQuery.data;
-
     if (experiments === undefined) {
       return;
     }
@@ -118,7 +124,6 @@ export function App() {
 
   useEffect(() => {
     const generations = generationsQuery.data;
-
     if (generations === undefined) {
       return;
     }
@@ -147,35 +152,31 @@ export function App() {
     onSuccess: async (experiment) => {
       setSelectedExperimentId(experiment.id);
       setSelectedGenerationId(null);
-      setActiveTab("showcase");
+      setExperienceMode("watch");
       setDialogOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["experiments"] });
-      setToast({ isError: false, message: "Experiment created." });
+      setToast({ isError: false, message: "Experiment created. The arena is ready." });
     },
   });
+
   const runMutation = useMutation({
     mutationFn: (experimentId: number) => runGeneration(experimentId),
     retry: false,
     onSuccess: async (results) => {
       const savedGeneration = results[0];
-
       if (savedGeneration !== undefined) {
         setSelectedGenerationId(savedGeneration.game_id);
       }
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["experiments"] }),
-        queryClient.invalidateQueries({
-          queryKey: ["experiment", selectedExperimentId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["generations", selectedExperimentId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["analysis", selectedExperimentId],
-        }),
+        queryClient.invalidateQueries({ queryKey: ["experiment", selectedExperimentId] }),
+        queryClient.invalidateQueries({ queryKey: ["generations", selectedExperimentId] }),
+        queryClient.invalidateQueries({ queryKey: ["analysis", selectedExperimentId] }),
+        queryClient.invalidateQueries({ queryKey: ["generation", savedGeneration?.game_id] }),
       ]);
-      setToast({ isError: false, message: "Generation completed and saved." });
+      setExperienceMode("watch");
+      setToast({ isError: false, message: "Generation completed. Starting the arena replay." });
     },
   });
 
@@ -232,7 +233,7 @@ export function App() {
   function selectExperiment(experimentId: number) {
     setSelectedExperimentId(experimentId);
     setSelectedGenerationId(null);
-    setActiveTab("showcase");
+    setExperienceMode("watch");
   }
 
   return (
@@ -240,9 +241,11 @@ export function App() {
       <div className="app-shell">
         <header className="topbar">
           <a className="brand" href="/" aria-label="AI Hunger Games dashboard">
-            <img alt="Abstract eight-seat arena" src="/static/arena-mark.png" />
+            <span className="brand-mark" aria-hidden="true">
+              <span /><span /><span />
+            </span>
             <span>
-              <span className="eyebrow">Multi-agent experiment</span>
+              <span className="eyebrow">Multi-agent show</span>
               <strong>AI Hunger Games</strong>
             </span>
           </a>
@@ -251,23 +254,10 @@ export function App() {
               <Wifi aria-hidden="true" size={13} strokeWidth={2} />
               {connection.label}
             </span>
-            <IconButton
-              disabled={isBusy}
-              label="Refresh experiment data"
-              onClick={() => void refresh()}
-            >
-              <RefreshCw
-                aria-hidden="true"
-                className={connection.isFetching ? "spin" : undefined}
-                size={17}
-              />
+            <IconButton disabled={isBusy} label="Refresh experiment data" onClick={() => void refresh()}>
+              <RefreshCw aria-hidden="true" className={connection.isFetching ? "spin" : undefined} size={17} />
             </IconButton>
-            <button
-              className="primary-button"
-              disabled={isBusy}
-              onClick={() => setDialogOpen(true)}
-              type="button"
-            >
+            <button className="primary-button" disabled={isBusy} onClick={() => setDialogOpen(true)} type="button">
               <Plus aria-hidden="true" size={15} />
               New experiment
             </button>
@@ -285,10 +275,7 @@ export function App() {
             {experimentsQuery.isPending ? (
               <LoadingState />
             ) : selectedExperimentId === null ? (
-              <EmptyState
-                isBusy={isBusy}
-                onNewExperiment={() => setDialogOpen(true)}
-              />
+              <EmptyState isBusy={isBusy} onNewExperiment={() => setDialogOpen(true)} />
             ) : hasLoadError ? (
               <ErrorState
                 message={firstErrorMessage([
@@ -303,25 +290,25 @@ export function App() {
               <LoadingState />
             ) : (
               <ExperimentView
-                activeTab={activeTab}
                 agentName={(agentId) => agentNames.get(agentId) ?? agentId}
                 analysis={analysis}
+                analysisTab={analysisTab}
+                experienceMode={experienceMode}
                 experiment={experiment}
                 generations={generations}
                 isRunning={runMutation.isPending}
+                onAnalysisTabChange={setAnalysisTab}
+                onExperienceModeChange={setExperienceMode}
                 onRun={() => void handleRun()}
-                onTabChange={setActiveTab}
                 onSelectedGenerationChange={setSelectedGenerationId}
                 selectedGenerationId={selectedGenerationId}
               />
             )}
           </main>
         </div>
+
         {toast !== null && (
-          <div
-            className={`toast${toast.isError ? " is-error" : ""}`}
-            role="status"
-          >
+          <div className={`toast${toast.isError ? " is-error" : ""}`} role="status">
             {toast.message}
           </div>
         )}
@@ -336,28 +323,31 @@ export function App() {
   );
 }
 
-
 function ExperimentView({
-  activeTab,
   agentName,
   analysis,
+  analysisTab,
+  experienceMode,
   experiment,
   generations,
   isRunning,
+  onAnalysisTabChange,
+  onExperienceModeChange,
   onRun,
   onSelectedGenerationChange,
-  onTabChange,
   selectedGenerationId,
 }: {
-  activeTab: ViewTab;
   agentName: (agentId: string) => string;
   analysis: ExperimentAnalysis;
+  analysisTab: AnalysisTab;
+  experienceMode: ExperienceMode;
   experiment: ExperimentDetail;
   generations: GenerationSummary[];
   isRunning: boolean;
+  onAnalysisTabChange: (tab: AnalysisTab) => void;
+  onExperienceModeChange: (mode: ExperienceMode) => void;
   onRun: () => void;
   onSelectedGenerationChange: (gameId: number | null) => void;
-  onTabChange: (view: ViewTab) => void;
   selectedGenerationId: number | null;
 }) {
   const metadata = [
@@ -372,89 +362,142 @@ function ExperimentView({
         <div>
           <p className="eyebrow">Selected experiment</p>
           <h1 id="experiment-name">{experiment.name}</h1>
-          <p className="metadata">{metadata.join(" | ")}</p>
+          <p className="metadata">{metadata.join(" · ")}</p>
         </div>
         <div className="run-controls">
-          <span className="run-count">1 generation</span>
-          <button
-            className="primary-button"
-            disabled={isRunning || !experiment.can_run}
-            onClick={onRun}
-            type="button"
-          >
+          <span className="run-count">Next: generation {experiment.generation_count + 1}</span>
+          <button className="primary-button" disabled={isRunning || !experiment.can_run} onClick={onRun} type="button">
             <Play aria-hidden="true" size={15} />
-            {isRunning ? "Running" : "Run"}
+            {isRunning ? "Running" : "Run generation"}
           </button>
         </div>
       </section>
 
       {isRunning && <RunProgress />}
 
-      <Tabs.Root
-        onValueChange={(value) => {
-          if (isViewTab(value)) {
-            onTabChange(value);
-          }
-        }}
-        value={activeTab}
-      >
-        <Tabs.List aria-label="Experiment views" className="view-tabs">
-          {viewTabs.map((tab) => (
-            <Tabs.Trigger className="view-tab" key={tab.value} value={tab.value}>
-              {tab.label}
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-        <Tabs.Content value="showcase">
-          <Suspense fallback={<TabLoading />}>
-            <ShowcaseTab
-              agentName={agentName}
-              analysis={analysis}
-              experiment={experiment}
-              generations={generations}
-              onTabChange={onTabChange}
-            />
-          </Suspense>
-        </Tabs.Content>
-        <Tabs.Content value="overview">
-          <Suspense fallback={<TabLoading />}>
-            <OverviewTab
-              agentName={agentName}
-              analysis={analysis}
-              experiment={experiment}
-              generations={generations}
-            />
-          </Suspense>
-        </Tabs.Content>
-        <Tabs.Content value="rounds">
-          <Suspense fallback={<TabLoading />}>
-            <RoundsTab
-              agentName={agentName}
-              generations={generations}
-              onSelectedGenerationChange={onSelectedGenerationChange}
-              selectedGenerationId={selectedGenerationId}
-            />
-          </Suspense>
-        </Tabs.Content>
-        <Tabs.Content value="relationships">
-          <Suspense fallback={<TabLoading />}>
-            <RelationshipsTab agentName={agentName} analysis={analysis} />
-          </Suspense>
-        </Tabs.Content>
-        <Tabs.Content value="lineage">
-          <Suspense fallback={<TabLoading />}>
-            <LineageTab
-              agentName={agentName}
-              analysis={analysis}
-              generations={generations}
-            />
-          </Suspense>
-        </Tabs.Content>
-      </Tabs.Root>
+      <div className="experience-switcher" role="tablist" aria-label="Experience mode">
+        {experienceModes.map((mode) => {
+          const Icon = mode.icon;
+          const active = experienceMode === mode.value;
+          return (
+            <button
+              aria-selected={active}
+              className={`experience-mode${active ? " is-active" : ""}`}
+              key={mode.value}
+              onClick={() => onExperienceModeChange(mode.value)}
+              role="tab"
+              type="button"
+            >
+              <Icon aria-hidden="true" size={17} />
+              <span>{mode.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {experienceMode === "watch" || experienceMode === "replay" ? (
+        <ArenaView
+          agentName={agentName}
+          experiment={experiment}
+          generations={generations}
+          isRunning={isRunning}
+          mode={experienceMode as ArenaMode}
+          onRun={onRun}
+          onSelectedGenerationChange={onSelectedGenerationChange}
+          selectedGenerationId={selectedGenerationId}
+        />
+      ) : (
+        <AnalyzeView
+          agentName={agentName}
+          analysis={analysis}
+          analysisTab={analysisTab}
+          experiment={experiment}
+          generations={generations}
+          onAnalysisTabChange={onAnalysisTabChange}
+          onSelectedGenerationChange={onSelectedGenerationChange}
+          selectedGenerationId={selectedGenerationId}
+        />
+      )}
     </>
   );
 }
 
+function AnalyzeView({
+  agentName,
+  analysis,
+  analysisTab,
+  experiment,
+  generations,
+  onAnalysisTabChange,
+  onSelectedGenerationChange,
+  selectedGenerationId,
+}: {
+  agentName: (agentId: string) => string;
+  analysis: ExperimentAnalysis;
+  analysisTab: AnalysisTab;
+  experiment: ExperimentDetail;
+  generations: GenerationSummary[];
+  onAnalysisTabChange: (tab: AnalysisTab) => void;
+  onSelectedGenerationChange: (gameId: number | null) => void;
+  selectedGenerationId: number | null;
+}) {
+  return (
+    <Tabs.Root
+      onValueChange={(value) => {
+        if (isAnalysisTab(value)) {
+          onAnalysisTabChange(value);
+        }
+      }}
+      value={analysisTab}
+    >
+      <Tabs.List aria-label="Analysis views" className="view-tabs">
+        {analysisTabs.map((tab) => (
+          <Tabs.Trigger className="view-tab" key={tab.value} value={tab.value}>
+            {tab.label}
+          </Tabs.Trigger>
+        ))}
+      </Tabs.List>
+      <Tabs.Content value="overview">
+        <Suspense fallback={<TabLoading />}>
+          <OverviewTab agentName={agentName} analysis={analysis} experiment={experiment} generations={generations} />
+        </Suspense>
+      </Tabs.Content>
+      <Tabs.Content value="rounds">
+        <Suspense fallback={<TabLoading />}>
+          <RoundsTab
+            agentName={agentName}
+            generations={generations}
+            onSelectedGenerationChange={onSelectedGenerationChange}
+            selectedGenerationId={selectedGenerationId}
+          />
+        </Suspense>
+      </Tabs.Content>
+      <Tabs.Content value="relationships">
+        <Suspense fallback={<TabLoading />}>
+          <RelationshipsTab agentName={agentName} analysis={analysis} />
+        </Suspense>
+      </Tabs.Content>
+      <Tabs.Content value="lineage">
+        <Suspense fallback={<TabLoading />}>
+          <LineageTab agentName={agentName} analysis={analysis} generations={generations} />
+        </Suspense>
+      </Tabs.Content>
+      <Tabs.Content value="showcase">
+        <Suspense fallback={<TabLoading />}>
+          <ShowcaseTab
+            agentName={agentName}
+            analysis={analysis}
+            experiment={experiment}
+            generations={generations}
+            onTabChange={(destination) => {
+              onAnalysisTabChange(destination === "overview" ? "overview" : destination);
+            }}
+          />
+        </Suspense>
+      </Tabs.Content>
+    </Tabs.Root>
+  );
+}
 
 function EmptyState({
   isBusy,
@@ -466,43 +509,31 @@ function EmptyState({
   return (
     <section className="empty-portfolio">
       <div className="empty-portfolio-grid" aria-hidden="true" />
-      <span className="hero-badge">Portfolio demo workspace</span>
-      <p className="eyebrow">AI evaluation platform</p>
-      <h1>Explore how eight LLM personalities compete and evolve.</h1>
+      <span className="hero-badge">Interactive spectator experience</span>
+      <p className="eyebrow">AI reality show meets evaluation platform</p>
+      <h1>Watch eight AI personalities enter the arena.</h1>
       <p>
-        Create a local simulated experiment to populate the score trends,
-        anonymous rounds, relationship matrix, and replacement lineage without
-        using a paid model request.
+        Create a local simulated experiment, run one generation, and replay
+        anonymous answers, named votes, elimination, and replacement as a visual show.
       </p>
       <div className="empty-actions">
-        <button
-          className="primary-button"
-          disabled={isBusy}
-          onClick={onNewExperiment}
-          type="button"
-        >
+        <button className="primary-button" disabled={isBusy} onClick={onNewExperiment} type="button">
           <Plus aria-hidden="true" size={15} />
-          Create demo experiment
+          Create experiment
         </button>
-        <a
-          className="secondary-button link-button"
-          href="https://github.com/Anugrah-Singh/ai-hunger-games"
-          rel="noreferrer"
-          target="_blank"
-        >
+        <a className="secondary-button link-button" href="https://github.com/Anugrah-Singh/ai-hunger-games" rel="noreferrer" target="_blank">
           View source
         </a>
       </div>
       <div className="empty-proof-grid">
-        <article><strong>8</strong><span>distinct agents</span></article>
-        <article><strong>8</strong><span>rounds per generation</span></article>
-        <article><strong>10</strong><span>Alembic migrations</span></article>
-        <article><strong>Full stack</strong><span>FastAPI + React</span></article>
+        <article><Eye aria-hidden="true" size={20} /><strong>Watch</strong><span>Animated arena</span></article>
+        <article><RotateCcw aria-hidden="true" size={20} /><strong>Replay</strong><span>Scene controls</span></article>
+        <article><BarChart3 aria-hidden="true" size={20} /><strong>Analyze</strong><span>Research dashboard</span></article>
+        <article><strong>8 × 8</strong><span>Agents and rounds</span></article>
       </div>
     </section>
   );
 }
-
 
 function TabLoading() {
   return (
@@ -512,26 +543,21 @@ function TabLoading() {
   );
 }
 
-
 function useAgentNames(
   experiment: ExperimentDetail | undefined,
   agentPerformance: { agent_id: string; agent_name: string }[] | undefined,
 ) {
   return useMemo(() => {
     const names = new Map<string, string>();
-
     for (const agent of agentPerformance ?? []) {
       names.set(agent.agent_id, agent.agent_name);
     }
-
     for (const agent of experiment?.current_population ?? []) {
       names.set(agent.agent_id, agent.agent_name);
     }
-
     return names;
   }, [agentPerformance, experiment?.current_population]);
 }
-
 
 function getConnectionState({
   hasLoadError,
@@ -545,25 +571,20 @@ function getConnectionState({
   if (isBusy) {
     return { className: "", isFetching: true, label: "Working" };
   }
-
   if (hasLoadError) {
     return { className: "is-error", isFetching: false, label: "Unavailable" };
   }
-
   if (isFetching) {
     return { className: "", isFetching: true, label: "Refreshing" };
   }
-
   return { className: "is-ready", isFetching: false, label: "Connected" };
 }
-
 
 function firstErrorMessage(errors: unknown[]): string {
   const error = errors.find((candidate) => candidate !== null);
   return errorMessage(error);
 }
 
-
-function isViewTab(value: string): value is ViewTab {
-  return viewTabs.some((tab) => tab.value === value);
+function isAnalysisTab(value: string): value is AnalysisTab {
+  return analysisTabs.some((tab) => tab.value === value);
 }
