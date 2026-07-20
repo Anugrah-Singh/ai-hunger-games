@@ -190,13 +190,12 @@ function ArenaHeader({
       <div>
         <span className="arena-live-pill">
           <span className={isPlaying ? "arena-live-dot" : "arena-live-dot is-paused"} />
-          {isPlaying ? "Playing" : "Paused"}
+          {isPlaying ? "Live broadcast" : "Broadcast paused"}
         </span>
-        <p className="eyebrow">{mode === "watch" ? "Watch mode" : "Replay mode"}</p>
-        <h1 id="arena-heading">Generation {generation.generation_number} arena</h1>
+        <p className="eyebrow">{mode === "watch" ? "Capitol live feed" : "Capitol archive"}</p>
+        <h1 id="arena-heading">Generation {generation.generation_number}: The Arena</h1>
         <p className="arena-header-copy">
-          Anonymous answers take the centre stage. Named agents speak only when
-          their persisted votes are revealed.
+          The arena presents anonymous answers, reveals persisted votes, and records every elimination without exposing hidden authorship.
         </p>
       </div>
       <label className="arena-generation-picker">
@@ -282,10 +281,11 @@ function ArenaStage({
 
         <AnimatePresence mode="wait">
           <motion.div
-            animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+            animate={{ opacity: 1, scale: 1, y: "-50%" }}
             className="arena-centre-stage"
-            exit={{ opacity: 0, scale: 0.97, x: "-50%", y: "calc(-50% - 8px)" }}
-            initial={{ opacity: 0, scale: 0.97, x: "-50%", y: "calc(-50% + 10px)" }}
+            exit={{ opacity: 0, scale: 0.97, y: "calc(-50% - 8px)" }}
+            initial={{ opacity: 0, scale: 0.97, y: "calc(-50% + 10px)", x: "-50%" }}
+            style={{ x: "-50%" }}
             key={scene.id}
             transition={{ duration: prefersReducedMotion ? 0 : 0.28 }}
           >
@@ -315,12 +315,12 @@ function ArenaAgent({
       animate={{
         opacity: eliminated ? 0.34 : 1,
         scale: isActive ? 1.08 : 1,
-        x: "-50%",
         y: isActive ? "calc(-50% - 5px)" : "-50%",
       }}
+      initial={{ x: "-50%", y: "-50%" }}
       className={`arena-agent${isActive ? " is-active" : ""}${eliminated ? " is-eliminated" : ""}`}
       layout
-      style={{ left: `${position.x}%`, top: `${position.y}%` }}
+      style={{ left: `${position.x}%`, top: `${position.y}%`, x: "-50%" }}
       transition={{ type: "spring", stiffness: 280, damping: 24 }}
     >
       <div className="arena-agent-platform" aria-hidden="true" />
@@ -598,11 +598,9 @@ function ArenaEmptyState({
 }
 
 function seatPosition(index: number, total: number): { x: number; y: number } {
-  const angle =
-    -Math.PI / 2 + (index / Math.max(total, 1)) * Math.PI * 2;
-
+  const angle = -Math.PI / 2 + (index / Math.max(total, 1)) * Math.PI * 2;
   return {
-    x: 50 + Math.cos(angle) * 35,
+    x: 50 + Math.cos(angle) * 38,
     y: 50 + Math.sin(angle) * 36,
   };
 }

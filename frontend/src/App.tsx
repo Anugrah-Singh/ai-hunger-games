@@ -245,8 +245,8 @@ export function App() {
               <span /><span /><span />
             </span>
             <span>
-              <span className="eyebrow">Multi-agent show</span>
-              <strong>AI Hunger Games</strong>
+              <span className="eyebrow">Capitol broadcast system</span>
+              <strong>AI Hunger Games</strong><small className="brand-motto">Only one model survives</small>
             </span>
           </a>
           <div className="topbar-actions">
@@ -360,15 +360,15 @@ function ExperimentView({
     <>
       <section className="experiment-header" aria-labelledby="experiment-name">
         <div>
-          <p className="eyebrow">Selected experiment</p>
+          <p className="eyebrow">Current season</p>
           <h1 id="experiment-name">{experiment.name}</h1>
           <p className="metadata">{metadata.join(" · ")}</p>
         </div>
         <div className="run-controls">
-          <span className="run-count">Next: generation {experiment.generation_count + 1}</span>
+          <span className="run-count">Next arena: generation {experiment.generation_count + 1}</span>
           <button className="primary-button" disabled={isRunning || !experiment.can_run} onClick={onRun} type="button">
             <Play aria-hidden="true" size={15} />
-            {isRunning ? "Running" : "Run generation"}
+            {isRunning ? "Broadcasting" : "Begin next arena"}
           </button>
         </div>
       </section>
@@ -509,9 +509,9 @@ function EmptyState({
   return (
     <section className="empty-portfolio">
       <div className="empty-portfolio-grid" aria-hidden="true" />
-      <span className="hero-badge">Interactive spectator experience</span>
-      <p className="eyebrow">AI reality show meets evaluation platform</p>
-      <h1>Watch eight AI personalities enter the arena.</h1>
+      <span className="hero-badge">Capitol spectator console</span>
+      <p className="eyebrow">Ceremonial multi-agent broadcast</p>
+      <h1>Enter the arena. Watch intelligence compete.</h1>
       <p>
         Create a local simulated experiment, run one generation, and replay
         anonymous answers, named votes, elimination, and replacement as a visual show.
