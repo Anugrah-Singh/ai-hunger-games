@@ -21,6 +21,7 @@ import {
   runGeneration,
 } from "./api/client";
 import type {
+  CreateExperimentInput,
   ExperimentAnalysis,
   ExperimentDetail,
   GenerationSummary,
@@ -214,8 +215,10 @@ export function App() {
     }
   }
 
-  async function handleCreate(name: string) {
-    await createMutation.mutateAsync(name);
+  async function handleCreate(
+    input: CreateExperimentInput,
+  ) {
+    await createMutation.mutateAsync(input);
   }
 
   async function handleRun() {

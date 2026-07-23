@@ -1,4 +1,5 @@
 import type {
+  CreateExperimentInput,
   ExperimentAnalysis,
   ExperimentDetail,
   ExperimentSummary,
@@ -98,14 +99,13 @@ export function getGeneration(
 
 
 export function createExperiment(
-  name: string,
+  input: CreateExperimentInput,
 ): Promise<ExperimentSummary> {
   return request<ExperimentSummary>("/experiments", {
     method: "POST",
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(input),
   });
 }
-
 
 export function runGeneration(
   experimentId: number,
@@ -118,3 +118,5 @@ export function runGeneration(
     },
   );
 }
+
+

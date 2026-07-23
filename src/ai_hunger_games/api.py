@@ -53,7 +53,7 @@ from ai_hunger_games.database import (
 from ai_hunger_games.database_setup import initialize_database
 from ai_hunger_games.db_models import ExperimentRecord
 from ai_hunger_games.experiment_definitions import (
-    build_default_experiment_definition,
+    build_experiment_definition,
     build_generation_run_config,
 )
 from ai_hunger_games.generations import run_generations
@@ -166,7 +166,7 @@ def create_app(
         try:
             experiment = await ExperimentRepository(session).create_experiment(
                 name=payload.name,
-                definition=build_default_experiment_definition(),
+                definition=build_experiment_definition(payload.preset),
                 provider_name=provider_name_for_settings(settings_for_experiment),
             )
         except IntegrityError as error:

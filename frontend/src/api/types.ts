@@ -4,6 +4,15 @@ export interface Personality {
   answer_template: string;
 }
 
+export type ExperimentPreset =
+  | "quick_demo"
+  | "full_tournament";
+
+export interface CreateExperimentInput {
+  name: string;
+  preset: ExperimentPreset;
+}
+
 
 export interface Agent {
   agent_id: string;

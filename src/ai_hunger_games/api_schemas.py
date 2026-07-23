@@ -4,11 +4,17 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ai_hunger_games.experiment_definitions import (
+    DEFAULT_EXPERIMENT_PRESET,
+    ExperimentPreset,
+)
+
 
 class CreateExperimentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=200)
+    preset: ExperimentPreset = DEFAULT_EXPERIMENT_PRESET
 
     @field_validator("name")
     @classmethod
