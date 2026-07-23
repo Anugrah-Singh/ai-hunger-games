@@ -63,6 +63,22 @@ def test_parse_selected_candidate_id_rejects_unknown_id() -> None:
         )
 
 
+def test_json_validation_failure_is_retryable():
+    error = make_groq_status_error(
+        status_code=400,
+        payload={
+            "error": {
+                "code": "json_validate_failed",
+                "message": "Failed to validate JSON.",
+            }
+        },
+    )
+
+    converted = convert_groq_error(error)
+
+    assert isinstance(converted, RetryableProviderError)
+
+
 def test_vote_prompt_contains_only_anonymous_options() -> None:
     voter = create_test_voter()
 
@@ -88,3 +104,45 @@ def test_vote_prompt_contains_only_anonymous_options() -> None:
     assert "Answer {question}" in prompt
 
     assert "agent_1" not in prompt
+
+
+def test_json_validation_failure_is_retryable():
+    error = make_groq_status_error(
+        status_code=400,
+        payload={
+            "error": {
+                "code": "json_validate_failed",
+                "message": "Failed to validate JSON.",
+            }
+        },
+    )
+
+    converted = convert_groq_error(error)
+
+    assert isinstance(converted, RetryableProviderError)
+
+
+
+async def test_empty_answer_response_is_retryable():
+    client = fake_client_returning_content("")
+
+    provider = GroqAnswerProvider(
+        client=client,
+        model="openai/gpt-oss-20b",
+    )
+
+    with pytest.raises(RetryableProviderError):
+        await provider.generate_answer(
+            agent=sample_agent(),
+            question="What makes a system reliable?",
+        )
+
+
+assert request["response_format"]["type"] == "json_schema"
+assert request["response_format"]["json_schema"]["strict"] is True
+assert request["response_format"]["json_schema"]["schema"][
+    "properties"
+]["selected_candidate_id"]["enum"] == [
+    "candidate_1",
+    "candidate_2",
+]

@@ -24,8 +24,8 @@ REPLACEMENT_SEED = 123
 
 ANSWER_POLICY = AnswerGenerationPolicy(
     timeout_seconds=30.0,
-    minimum_successful_answers=8,
-    maximum_attempts=4,
+    minimum_successful_answers=7,
+    maximum_attempts=3,
     initial_retry_delay_seconds=3.0,
     maximum_retry_delay_seconds=20.0,
     maximum_concurrent_requests=2,

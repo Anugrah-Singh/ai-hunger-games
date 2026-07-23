@@ -1,5 +1,7 @@
 import json
 from collections.abc import Sequence
+from groq import APIStatusError
+from typing import Any
 
 import groq
 from groq import AsyncGroq
@@ -29,7 +31,23 @@ class GroqProviderError(RuntimeError):
     """A permanent or invalid Groq provider response."""
 
 
-def convert_groq_error(error: Exception) -> Exception:
+def convert_groq_error(error: APIStatusError) -> Exception:
+    status_code = error.status_code
+    response_body = _groq_error_body(error)
+
+    error_payload = response_body.get("error", {})
+    error_code = error_payload.get("code")
+
+    if error_code == "json_validate_failed":
+        return RetryableProviderError(
+            message=(
+                "Groq could not produce valid structured JSON. "
+                "The operation may succeed on retry."
+            ),
+            retry_after_seconds=None,
+        )
+
+
     if isinstance(error, groq.APIConnectionError):
         return RetryableProviderError(f"Could not connect to Groq: {error}")
 
@@ -52,15 +70,13 @@ def convert_groq_error(error: Exception) -> Exception:
 def require_message_content(
     content: str | None,
 ) -> str:
-    if content is None:
-        raise GroqProviderError("Groq returned a response without content")
+    if content is None or not content.strip():
+        raise RetryableProviderError(
+            "Groq returned empty message content",
+            retry_after_seconds=None,
+        )
 
-    cleaned_content = content.strip()
-
-    if not cleaned_content:
-        raise GroqProviderError("Groq returned an empty response")
-
-    return cleaned_content
+    return content.strip()
 
 
 class GroqAnswerProvider:
@@ -147,23 +163,38 @@ class GroqVoteProvider:
                     {
                         "role": "system",
                         "content": (
-                            "You are an impartial anonymous "
-                            "answer evaluator. Judge answer "
-                            "quality rather than writing style "
-                            "or personality similarity. Return "
-                            "only the requested JSON object."
+                            "Choose exactly one candidate from the supplied options. "
+                            "Return only the required structured result."
                         ),
                     },
                     {
                         "role": "user",
-                        "content": prompt,
+                        "content": build_vote_prompt(
+                            voter=voter,
+                            options=options,
+                        ),
                     },
                 ],
-                temperature=0,
-                seed=seed,
-                max_completion_tokens=30,
                 response_format={
-                    "type": "json_object",
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "vote_selection",
+                        "strict": True,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "selected_candidate_id": {
+                                    "type": "string",
+                                    "enum": [
+                                        option.candidate_id
+                                        for option in options
+                                    ],
+                                },
+                            },
+                            "required": ["selected_candidate_id"],
+                            "additionalProperties": False,
+                        },
+                    },
                 },
             )
         except groq.APIError as error:
@@ -377,3 +408,12 @@ def get_retry_after_seconds(
         return float(retry_after)
     except ValueError:
         return None
+
+
+def _groq_error_body(error: APIStatusError) -> dict[str, Any]:
+    try:
+        payload = error.response.json()
+    except Exception:
+        return {}
+
+    return payload if isinstance(payload, dict) else {}
