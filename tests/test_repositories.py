@@ -77,10 +77,11 @@ EXPECTED_APPLICATION_TABLE_NAMES = {
     "round_scores",
     "rounds",
     "votes",
+    "generation_runs",
 }
 
 ALEMBIC_VERSION_TABLE_NAME = "alembic_version"
-EXPECTED_ALEMBIC_REVISION = "0010_enforce_experiment_name_uniqueness"
+EXPECTED_ALEMBIC_REVISION = "0011_add_generation_runs"
 GENERATION_NUMBER_INDEX_NAME = "uq_games_experiment_generation_number"
 SIMULATED_PROVIDER_NAME = "Simulated providers"
 TEST_QUESTIONS = (

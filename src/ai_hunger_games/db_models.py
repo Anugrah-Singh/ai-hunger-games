@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Literal
 
 from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -10,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -72,6 +76,90 @@ class ExperimentRecord(Base):
         back_populates="experiment",
         cascade="all, delete-orphan",
         uselist=False,
+    )
+
+
+class GenerationRunRecord(Base):
+    """Durable status for one requested generation execution."""
+
+    __tablename__ = "generation_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'running', 'completed', 'failed')",
+            name="ck_generation_runs_status",
+        ),
+        Index(
+            "ix_generation_runs_experiment_id",
+            "experiment_id",
+        ),
+        Index(
+            "ix_generation_runs_status",
+            "status",
+        ),
+        Index(
+            "ix_generation_runs_game_id",
+            "game_id",
+        ),
+        Index(
+            "uq_generation_runs_active_experiment",
+            "experiment_id",
+            unique=True,
+            sqlite_where=text("status IN ('queued', 'running')"),
+            postgresql_where=text("status IN ('queued', 'running')"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    experiment_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "experiments.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+    )
+
+    generation_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    game_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "games.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
 
@@ -724,3 +812,11 @@ class RoundScoreRecord(Base):
     round: Mapped[RoundRecord] = relationship(
         back_populates="scores",
     )
+
+
+type GenerationRunStatus = Literal[
+    "queued",
+    "running",
+    "completed",
+    "failed",
+]

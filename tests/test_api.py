@@ -1,3 +1,4 @@
+import asyncio
 import re
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -422,3 +423,104 @@ async def test_api_rejects_unknown_experiment_preset(
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_api_starts_background_generation_run(
+    api_client: httpx.AsyncClient,
+) -> None:
+    created = await api_client.post(
+        "/experiments",
+        json={"name": "Background run"},
+    )
+
+    assert created.status_code == 201
+
+    experiment_id = created.json()["id"]
+
+    started = await api_client.post(
+        f"/experiments/{experiment_id}/runs",
+        json={"generation_count": 1},
+    )
+
+    assert started.status_code == 202
+
+    started_payload = started.json()
+
+    assert started_payload["experiment_id"] == (experiment_id)
+    assert started_payload["generation_number"] == 1
+    assert started_payload["status"] in {
+        "queued",
+        "running",
+        "completed",
+    }
+
+    run_id = started_payload["id"]
+
+    for _ in range(50):
+        current = await api_client.get(f"/runs/{run_id}")
+
+        assert current.status_code == 200
+
+        current_payload = current.json()
+
+        if current_payload["status"] in {
+            "completed",
+            "failed",
+        }:
+            break
+
+        await asyncio.sleep(0.02)
+    else:
+        pytest.fail("Background generation did not finish.")
+
+    assert current_payload["status"] == "completed"
+    assert current_payload["game_id"] is not None
+
+    generations = await api_client.get(f"/experiments/{experiment_id}/generations")
+
+    assert generations.status_code == 200
+    assert len(generations.json()) == 1
+
+
+@pytest.mark.asyncio
+async def test_api_rejects_second_active_background_run(
+    api_client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created = await api_client.post(
+        "/experiments",
+        json={"name": "One active run"},
+    )
+
+    experiment_id = created.json()["id"]
+
+    release = asyncio.Event()
+
+    async def blocked_run_generations(
+        *_: object,
+        **__: object,
+    ) -> list[object]:
+        await release.wait()
+        return []
+
+    monkeypatch.setattr(
+        "ai_hunger_games.api.run_generations",
+        blocked_run_generations,
+    )
+
+    first = await api_client.post(
+        f"/experiments/{experiment_id}/runs",
+        json={"generation_count": 1},
+    )
+
+    assert first.status_code == 202
+
+    second = await api_client.post(
+        f"/experiments/{experiment_id}/runs",
+        json={"generation_count": 1},
+    )
+
+    assert second.status_code == 409
+
+    release.set()

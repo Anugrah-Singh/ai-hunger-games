@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => ({
       "/health": "http://127.0.0.1:8000",
       "/experiments": "http://127.0.0.1:8000",
       "/generations": "http://127.0.0.1:8000",
+      "/runs": "http://127.0.0.1:8000",
     },
   },
   test: {

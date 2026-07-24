@@ -1,6 +1,7 @@
 """Pydantic contracts for the public HTTP boundary."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -31,6 +32,23 @@ class RunGenerationsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     generation_count: int = Field(default=1, ge=1, le=1)
+
+
+class GenerationRunResponse(BaseModel):
+    id: int
+    experiment_id: int
+    status: Literal[
+        "queued",
+        "running",
+        "completed",
+        "failed",
+    ]
+    generation_number: int
+    game_id: int | None
+    error_message: str | None
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
 
 
 class ExperimentResponse(BaseModel):
