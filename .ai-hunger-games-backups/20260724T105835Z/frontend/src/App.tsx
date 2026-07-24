@@ -18,12 +18,12 @@ import {
   getExperimentAnalysis,
   getExperiments,
   getGenerations,
+  runGeneration,
 } from "./api/client";
 import type {
   CreateExperimentInput,
   ExperimentAnalysis,
   ExperimentDetail,
-  GenerationRun,
   GenerationSummary,
 } from "./api/types";
 import { ArenaView, type ArenaMode } from "./components/ArenaView";
@@ -37,7 +37,6 @@ import {
 } from "./components/common";
 import { errorMessage, formatDate } from "./lib/format";
 import { defaultExperimentId } from "./lib/selection";
-import { useGenerationRun } from "./lib/useGenerationRun";
 
 const OverviewTab = lazy(async () => ({
   default: (await import("./components/OverviewTab")).OverviewTab,
@@ -161,18 +160,24 @@ export function App() {
     },
   });
 
-  const generationRun = useGenerationRun({
-    experimentId: selectedExperimentId,
-    onCompleted: (gameId) => {
-      setSelectedGenerationId(gameId);
+  const runMutation = useMutation({
+    mutationFn: (experimentId: number) => runGeneration(experimentId),
+    retry: false,
+    onSuccess: async (results) => {
+      const savedGeneration = results[0];
+      if (savedGeneration !== undefined) {
+        setSelectedGenerationId(savedGeneration.game_id);
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["experiments"] }),
+        queryClient.invalidateQueries({ queryKey: ["experiment", selectedExperimentId] }),
+        queryClient.invalidateQueries({ queryKey: ["generations", selectedExperimentId] }),
+        queryClient.invalidateQueries({ queryKey: ["analysis", selectedExperimentId] }),
+        queryClient.invalidateQueries({ queryKey: ["generation", savedGeneration?.game_id] }),
+      ]);
       setExperienceMode("watch");
-      setToast({
-        isError: false,
-        message: "Generation completed. Starting the arena replay.",
-      });
-    },
-    onFailed: (message) => {
-      setToast({ isError: true, message });
+      setToast({ isError: false, message: "Generation completed. Starting the arena replay." });
     },
   });
 
@@ -180,7 +185,7 @@ export function App() {
   const analysis = analysisQuery.data;
   const generations = generationsQuery.data ?? [];
   const agentNames = useAgentNames(experiment, analysis?.agent_performance);
-  const isBusy = createMutation.isPending || generationRun.isRunning;
+  const isBusy = createMutation.isPending || runMutation.isPending;
   const hasLoadError =
     experimentsQuery.isError
     || experimentQuery.isError
@@ -222,7 +227,7 @@ export function App() {
     }
 
     try {
-      await generationRun.start();
+      await runMutation.mutateAsync(selectedExperimentId);
     } catch (error) {
       setToast({ isError: true, message: errorMessage(error) });
     }
@@ -294,8 +299,7 @@ export function App() {
                 experienceMode={experienceMode}
                 experiment={experiment}
                 generations={generations}
-                isRunning={generationRun.isRunning}
-                run={generationRun.run}
+                isRunning={runMutation.isPending}
                 onAnalysisTabChange={setAnalysisTab}
                 onExperienceModeChange={setExperienceMode}
                 onRun={() => void handleRun()}
@@ -330,7 +334,6 @@ function ExperimentView({
   experiment,
   generations,
   isRunning,
-  run,
   onAnalysisTabChange,
   onExperienceModeChange,
   onRun,
@@ -344,7 +347,6 @@ function ExperimentView({
   experiment: ExperimentDetail;
   generations: GenerationSummary[];
   isRunning: boolean;
-  run: GenerationRun | null;
   onAnalysisTabChange: (tab: AnalysisTab) => void;
   onExperienceModeChange: (mode: ExperienceMode) => void;
   onRun: () => void;
@@ -374,7 +376,7 @@ function ExperimentView({
         </div>
       </section>
 
-      {isRunning && <RunProgress run={run} />}
+      {isRunning && <RunProgress />}
 
       <div className="experience-switcher" role="tablist" aria-label="Experience mode">
         {experienceModes.map((mode) => {

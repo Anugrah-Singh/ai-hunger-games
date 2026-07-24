@@ -777,55 +777,39 @@ async def _run_generation_work(
     session_factory: async_sessionmaker[AsyncSession],
     settings: Settings,
 ) -> int:
-    """Run and persist one generation without nesting session transactions.
+    """Run and atomically persist one generation, returning its game ID."""
 
-    Repository read methods manage their own transaction scopes. Each
-    preparation step therefore gets a fresh session. The final generation
-    repository also receives a clean session and remains the sole owner of
-    the atomic game-save transaction.
-    """
-
-    async with session_factory() as definition_session:
-        definition = await ExperimentRepository(
-            definition_session
-        ).load_experiment_definition(experiment_id)
-
-    if definition is None:
-        raise ExperimentConfigurationError(
-            "This experiment has no saved configuration snapshot."
+    async with session_factory() as session:
+        experiment = await session.get(
+            ExperimentRecord,
+            experiment_id,
         )
 
-    async with session_factory() as experiment_session:
-        experiment = await ExperimentRepository(experiment_session).get_experiment(
+        if experiment is None:
+            raise RuntimeError("The experiment no longer exists.")
+
+        definition = await ExperimentRepository(session).load_experiment_definition(
             experiment_id
         )
 
-    if experiment is None:
-        raise RuntimeError("The experiment no longer exists.")
+        if definition is None:
+            raise ExperimentConfigurationError(
+                "This experiment has no saved configuration snapshot."
+            )
 
-    configured_provider_name = provider_name_for_settings(settings)
+        configured_provider_name = provider_name_for_settings(settings)
 
-    if experiment.provider_name != configured_provider_name:
-        raise ProviderConfigurationConflictError(
-            "This server is configured for "
-            f"'{configured_provider_name}', while this experiment is "
-            f"pinned to '{experiment.provider_name}'."
-        )
+        if experiment.provider_name != configured_provider_name:
+            raise ProviderConfigurationConflictError(
+                "This server is configured for "
+                f"'{configured_provider_name}', while this experiment is "
+                f"pinned to '{experiment.provider_name}'."
+            )
 
-    async with session_factory() as population_session:
-        population_repository = GameRepository(
-            population_session,
-            experiment_id,
-        )
-        starting_agents = await population_repository.load_latest_population()
-
-    if starting_agents is None:
-        starting_agents = list(definition.initial_agents)
-
-    async with session_factory() as generation_session:
-        repository = GameRepository(
-            generation_session,
-            experiment_id,
+        repository = GameRepository(session, experiment_id)
+        starting_agents = await _starting_agents_for_run(
+            repository=repository,
+            definition=definition,
         )
         groq_client = None
 
@@ -839,10 +823,7 @@ async def _run_generation_work(
 
             results = await run_generations(
                 initial_agents=starting_agents,
-                config=build_generation_run_config(
-                    definition,
-                    1,
-                ),
+                config=build_generation_run_config(definition, 1),
                 answer_provider=answer_provider,
                 vote_provider=vote_provider,
                 personality_provider=personality_provider,
@@ -853,12 +834,12 @@ async def _run_generation_work(
             if groq_client is not None:
                 await groq_client.close()
 
-    if len(results) != 1:
-        raise RuntimeError(
-            "The background generation did not return exactly one result."
-        )
+        if len(results) != 1:
+            raise RuntimeError(
+                "The background generation did not return exactly one result."
+            )
 
-    return results[0].game_id
+        return results[0].game_id
 
 
 async def _starting_agents_for_run(

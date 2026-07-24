@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import event
-from sqlalchemy.engine import Connection, make_url
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -14,52 +14,46 @@ from sqlalchemy.ext.asyncio import (
 DATABASE_DIRECTORY = Path("data")
 DATABASE_PATH = DATABASE_DIRECTORY / "ai_hunger_games.db"
 DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_PATH}"
-SQLITE_BUSY_TIMEOUT_MILLISECONDS = 30_000
 
 
 def create_database_engine(
     database_url: str = DATABASE_URL,
 ) -> AsyncEngine:
     if database_url == DATABASE_URL:
-        DATABASE_DIRECTORY.mkdir(parents=True, exist_ok=True)
+        DATABASE_DIRECTORY.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
-    is_sqlite = make_url(database_url).get_backend_name() == "sqlite"
     engine = create_async_engine(
         database_url,
         echo=False,
-        connect_args={"timeout": 30.0} if is_sqlite else {},
     )
 
-    if is_sqlite:
+    if engine.url.get_backend_name() == "sqlite":
         _configure_sqlite_transaction_handling(engine)
 
     return engine
 
 
-def _configure_sqlite_transaction_handling(engine: AsyncEngine) -> None:
+def _configure_sqlite_transaction_handling(
+    engine: AsyncEngine,
+) -> None:
     @event.listens_for(engine.sync_engine, "connect")
     def configure_sqlite_connection(
         dbapi_connection: Any,
         _connection_record: Any,
     ) -> None:
-        # Disable sqlite3's legacy implicit transaction behavior. SQLAlchemy's
-        # begin event below becomes the single transaction owner.
         dbapi_connection.isolation_level = None
 
         cursor = dbapi_connection.cursor()
-        try:
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MILLISECONDS}")
-            # WAL allows status polling reads while the generation snapshot is
-            # committed. SQLite still has one writer, so write transactions stay
-            # short and use separate AsyncSession instances.
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA synchronous=NORMAL")
-        finally:
-            cursor.close()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
     @event.listens_for(engine.sync_engine, "begin")
-    def begin_sqlite_transaction(connection: Connection) -> None:
+    def begin_sqlite_transaction(
+        connection: Connection,
+    ) -> None:
         connection.exec_driver_sql("BEGIN")
 
 
@@ -70,6 +64,7 @@ def set_sqlite_foreign_keys(
     """Change SQLite FK enforcement before a migration opens a transaction."""
 
     cursor = connection.connection.cursor()
+
     try:
         cursor.execute("PRAGMA foreign_keys=" + ("ON" if enabled else "OFF"))
     finally:
@@ -82,6 +77,7 @@ def raise_if_sqlite_foreign_keys_are_invalid(
     """Reject a migration that leaves any SQLite relationship orphaned."""
 
     cursor = connection.connection.cursor()
+
     try:
         cursor.execute("PRAGMA foreign_key_check")
         violations = cursor.fetchall()

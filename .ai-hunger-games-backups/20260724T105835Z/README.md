@@ -6,7 +6,7 @@ It is an experiment harness, not evidence of social intent. A single generation 
 
 ## What runs today
 
-- Recruiter-friendly Quick Demo experiments use four agents and three rounds; the full eight-by-eight benchmark remains available.
+- Eight starting agents with distinct reasoning strategies and eight varied questions.
 - Concurrent answer generation with a bounded concurrency policy.
 - Anonymous candidate order and no self-voting.
 - Sequential voting to reduce constrained-tier Groq pressure.
@@ -16,7 +16,6 @@ It is an experiment harness, not evidence of social intent. A single generation 
   questions, policies, and seeds before the first generation runs.
 - Multi-generation runs that resume from the prior final population and assign unique replacement IDs.
 - Deterministic historical analysis for score trends, voter-target rates, reciprocity indicators, replacement outcomes, and personality diversity.
-- Durable background generation runs return immediately, survive browser refreshes, reject duplicates, and expose queued/running/completed/failed status.
 - A FastAPI API and a React dashboard for running and inspecting experiments.
 
 ## Architecture
@@ -160,9 +159,6 @@ POST /experiments
 GET  /experiments
 GET  /experiments/{experiment_id}
 POST /experiments/{experiment_id}/generations
-POST /experiments/{experiment_id}/runs
-GET  /experiments/{experiment_id}/runs/active
-GET  /runs/{run_id}
 GET  /experiments/{experiment_id}/generations
 GET  /experiments/{experiment_id}/analysis
 GET  /generations/{game_id}
@@ -170,7 +166,7 @@ GET  /generations/{game_id}/rounds
 GET  /generations/{game_id}/votes
 ```
 
-The dashboard starts a durable run and polls its status instead of holding one HTTP request open. A partial unique index prevents more than one queued or running generation per experiment, while repository stale-plan validation still protects the final save. Active rows left by a process restart are marked failed during startup so the experiment can be run again.
+The in-process run coordinator prevents two dashboard requests from running the same experiment concurrently. The repository also rejects a stale generation plan at save time, so a slow provider call cannot silently claim the wrong generation number.
 
 The API has no authentication or authorization layer. Keep it bound to
 `127.0.0.1` and do not expose it to a network while it has access to a Groq API
@@ -219,7 +215,6 @@ The schema contains:
 experiments
 experiment_configurations
 experiment_initial_agents
-generation_runs
 games
 game_agents
 game_final_agents
@@ -232,7 +227,7 @@ round_scores
 
 Historical unscoped databases are safely imported into one `Imported legacy history` experiment by migration `0006`. This preserves the old rows without pretending that separate historical runs had known experiment boundaries.
 
-Migrations `0007` through `0011` add answer retry/failure telemetry, make every game physically experiment-scoped, snapshot inputs for newly created experiments, repair the experiment-name uniqueness boundary, and persist background-run status. SQLite batch migrations temporarily disable foreign-key enforcement only while the referenced table is copied, then run `PRAGMA foreign_key_check`; this prevents child rows from cascading away during the rebuild.
+Migrations `0007` through `0010` add answer retry/failure telemetry, make every game physically experiment-scoped, snapshot inputs for newly created experiments, and repair the experiment-name uniqueness boundary in historically stamped databases. SQLite batch migrations temporarily disable foreign-key enforcement only while the referenced table is copied, then run `PRAGMA foreign_key_check`; this prevents child rows from cascading away during the rebuild.
 
 One `save_game()` transaction writes a complete generation. A database constraint failure rolls it back; repository tests verify that no partial game remains. SQLite foreign keys are enabled for every connection.
 

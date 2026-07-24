@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import (
+    BackgroundTasks,
     Depends,
     FastAPI,
     HTTPException,
@@ -161,33 +162,10 @@ def create_app(
         app.state.session_factory = create_session_factory(database_engine)
         app.state.settings = configured_settings
         app.state.run_coordinator = ExperimentRunCoordinator()
-        app.state.generation_tasks = set()
-
-        async with app.state.session_factory() as startup_session:
-            abandoned_run_count = await GenerationRunRepository(
-                startup_session
-            ).fail_abandoned_runs()
-
-        if abandoned_run_count:
-            logger.warning(
-                "Marked %s abandoned generation run(s) as failed",
-                abandoned_run_count,
-            )
 
         try:
             yield
         finally:
-            generation_tasks: set[asyncio.Task[None]] = app.state.generation_tasks
-
-            for task in tuple(generation_tasks):
-                task.cancel()
-
-            if generation_tasks:
-                await asyncio.gather(
-                    *generation_tasks,
-                    return_exceptions=True,
-                )
-
             await database_engine.dispose()
 
     app = FastAPI(
@@ -471,6 +449,7 @@ def create_app(
     async def start_generation_run(
         experiment_id: ExperimentId,
         payload: RunGenerationsRequest,
+        background_tasks: BackgroundTasks,
         request: Request,
         session: SessionDependency,
     ) -> GenerationRunResponse:
@@ -553,20 +532,15 @@ def create_app(
                 detail=("This experiment already has a generation in progress."),
             ) from error
 
-        response = _generation_run_response(run)
-
-        # create_queued_run() commits the row. Closing the request session before
-        # scheduling releases SQLite's connection and prevents the worker from
-        # overlapping with the dependency-owned transaction.
-        await session.close()
-
-        _schedule_generation_run(
-            app=request.app,
+        background_tasks.add_task(
+            _execute_generation_run,
             run_id=run.id,
             experiment_id=experiment.id,
+            session_factory=(request.app.state.session_factory),
+            settings=request.app.state.settings,
         )
 
-        return response
+        return _generation_run_response(run)
 
     @app.get(
         "/runs/{run_id}",
@@ -694,171 +668,117 @@ def create_app(
     return app
 
 
-def _schedule_generation_run(
-    *,
-    app: FastAPI,
-    run_id: int,
-    experiment_id: int,
-) -> None:
-    """Schedule a generation and retain it for application shutdown."""
-
-    task = asyncio.create_task(
-        _execute_generation_run(
-            run_id=run_id,
-            experiment_id=experiment_id,
-            session_factory=app.state.session_factory,
-            settings=app.state.settings,
-        ),
-        name=f"generation-run-{run_id}-experiment-{experiment_id}",
-    )
-
-    generation_tasks: set[asyncio.Task[None]] = app.state.generation_tasks
-    generation_tasks.add(task)
-    task.add_done_callback(generation_tasks.discard)
-
-
 async def _execute_generation_run(
     *,
     run_id: int,
     experiment_id: int,
-    session_factory: async_sessionmaker[AsyncSession],
+    session_factory: (async_sessionmaker[AsyncSession]),
     settings: Settings,
 ) -> None:
     """Execute one generation independently of the request session."""
 
-    try:
-        async with session_factory() as status_session:
-            await GenerationRunRepository(status_session).mark_running(run_id)
-
-        game_id = await _run_generation_work(
-            experiment_id=experiment_id,
-            session_factory=session_factory,
-            settings=settings,
-        )
-
-        async with session_factory() as status_session:
-            await GenerationRunRepository(status_session).mark_completed(
-                run_id,
-                game_id=game_id,
-            )
-
-    except asyncio.CancelledError:
-        logger.info(
-            "Background generation run %s was cancelled during shutdown",
-            run_id,
-        )
-        raise
-
-    except Exception:
-        logger.exception(
-            "Background generation run %s failed for experiment %s",
-            run_id,
-            experiment_id,
-        )
+    async with session_factory() as session:
+        run_repository = GenerationRunRepository(session)
 
         try:
-            async with session_factory() as failure_session:
-                await GenerationRunRepository(failure_session).mark_failed(
+            await run_repository.mark_running(run_id)
+
+            experiment = await session.get(
+                ExperimentRecord,
+                experiment_id,
+            )
+
+            if experiment is None:
+                raise RuntimeError("The experiment no longer exists.")
+
+            definition = await ExperimentRepository(session).load_experiment_definition(
+                experiment_id
+            )
+
+            if definition is None:
+                raise ExperimentConfigurationError(
+                    "This experiment has no saved configuration snapshot."
+                )
+
+            configured_provider_name = provider_name_for_settings(settings)
+
+            if experiment.provider_name != configured_provider_name:
+                raise ProviderConfigurationConflictError(
+                    "This server is configured for "
+                    f"'{configured_provider_name}', while "
+                    "this experiment is pinned to "
+                    f"'{experiment.provider_name}'."
+                )
+
+            repository = GameRepository(
+                session,
+                experiment_id,
+            )
+
+            starting_agents = await _starting_agents_for_run(
+                repository=repository,
+                definition=definition,
+            )
+
+            groq_client = None
+
+            try:
+                (
+                    answer_provider,
+                    vote_provider,
+                    personality_provider,
+                    groq_client,
+                ) = create_providers(settings)
+
+                results = await run_generations(
+                    initial_agents=(starting_agents),
+                    config=(
+                        build_generation_run_config(
+                            definition,
+                            1,
+                        )
+                    ),
+                    answer_provider=(answer_provider),
+                    vote_provider=vote_provider,
+                    personality_provider=(personality_provider),
+                    repository=repository,
+                    provider_name=(configured_provider_name),
+                )
+            finally:
+                if groq_client is not None:
+                    await groq_client.close()
+
+            if len(results) != 1:
+                raise RuntimeError(
+                    "The background generation did not return exactly one result."
+                )
+
+            await run_repository.mark_completed(
+                run_id,
+                game_id=results[0].game_id,
+            )
+
+        except Exception:
+            logger.exception(
+                "Background generation run %s failed for experiment %s",
+                run_id,
+                experiment_id,
+            )
+
+            await session.rollback()
+
+            try:
+                await run_repository.mark_failed(
                     run_id,
                     error_message=(
                         "Generation did not complete; no generation was saved."
                     ),
                 )
-        except Exception:
-            logger.exception(
-                "Could not mark generation run %s as failed",
-                run_id,
-            )
-
-
-async def _run_generation_work(
-    *,
-    experiment_id: int,
-    session_factory: async_sessionmaker[AsyncSession],
-    settings: Settings,
-) -> int:
-    """Run and persist one generation without nesting session transactions.
-
-    Repository read methods manage their own transaction scopes. Each
-    preparation step therefore gets a fresh session. The final generation
-    repository also receives a clean session and remains the sole owner of
-    the atomic game-save transaction.
-    """
-
-    async with session_factory() as definition_session:
-        definition = await ExperimentRepository(
-            definition_session
-        ).load_experiment_definition(experiment_id)
-
-    if definition is None:
-        raise ExperimentConfigurationError(
-            "This experiment has no saved configuration snapshot."
-        )
-
-    async with session_factory() as experiment_session:
-        experiment = await ExperimentRepository(experiment_session).get_experiment(
-            experiment_id
-        )
-
-    if experiment is None:
-        raise RuntimeError("The experiment no longer exists.")
-
-    configured_provider_name = provider_name_for_settings(settings)
-
-    if experiment.provider_name != configured_provider_name:
-        raise ProviderConfigurationConflictError(
-            "This server is configured for "
-            f"'{configured_provider_name}', while this experiment is "
-            f"pinned to '{experiment.provider_name}'."
-        )
-
-    async with session_factory() as population_session:
-        population_repository = GameRepository(
-            population_session,
-            experiment_id,
-        )
-        starting_agents = await population_repository.load_latest_population()
-
-    if starting_agents is None:
-        starting_agents = list(definition.initial_agents)
-
-    async with session_factory() as generation_session:
-        repository = GameRepository(
-            generation_session,
-            experiment_id,
-        )
-        groq_client = None
-
-        try:
-            (
-                answer_provider,
-                vote_provider,
-                personality_provider,
-                groq_client,
-            ) = create_providers(settings)
-
-            results = await run_generations(
-                initial_agents=starting_agents,
-                config=build_generation_run_config(
-                    definition,
-                    1,
-                ),
-                answer_provider=answer_provider,
-                vote_provider=vote_provider,
-                personality_provider=personality_provider,
-                repository=repository,
-                provider_name=configured_provider_name,
-            )
-        finally:
-            if groq_client is not None:
-                await groq_client.close()
-
-    if len(results) != 1:
-        raise RuntimeError(
-            "The background generation did not return exactly one result."
-        )
-
-    return results[0].game_id
+            except Exception:
+                logger.exception(
+                    "Could not mark generation run %s as failed",
+                    run_id,
+                )
 
 
 async def _starting_agents_for_run(

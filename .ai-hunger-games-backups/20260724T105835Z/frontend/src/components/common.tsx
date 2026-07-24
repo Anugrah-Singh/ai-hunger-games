@@ -1,8 +1,6 @@
-import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { LoaderCircle, Sparkles } from "lucide-react";
 import { Tooltip } from "radix-ui";
-
-import type { GenerationRun } from "../api/types";
 
 interface MetricCardProps {
   label: string;
@@ -112,35 +110,13 @@ export function LoadingState({ label = "Loading experiment data" }: { label?: st
   );
 }
 
-export function RunProgress({ run }: { run: GenerationRun | null }) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (run === null || (run.status !== "queued" && run.status !== "running")) {
-      return undefined;
-    }
-
-    const interval = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(interval);
-  }, [run]);
-
-  const startedAt = run?.started_at ?? run?.created_at;
-  const elapsedSeconds = startedAt === undefined
-    ? 0
-    : Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1_000));
-  const title = run?.status === "queued"
-    ? `Generation ${run.generation_number} is queued`
-    : `Generation ${run?.generation_number ?? ""} is running`.trim();
-
+export function RunProgress() {
   return (
     <div className="run-progress" role="status" aria-live="polite">
       <LoaderCircle aria-hidden="true" className="spin" size={18} />
       <div>
-        <strong>{title}</strong>
-        <span>
-          The run continues on the backend. You can refresh or reopen this
-          experiment without starting a duplicate. Elapsed: {elapsedSeconds}s.
-        </span>
+        <strong>Generation is running</strong>
+        <span>Answers, voting, replacement, and persistence are executing on the backend.</span>
       </div>
     </div>
   );

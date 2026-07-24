@@ -4,7 +4,6 @@ import type {
   ExperimentDetail,
   ExperimentSummary,
   GenerationDetail,
-  GenerationRun,
   GenerationSummary,
 } from "./types";
 
@@ -108,11 +107,11 @@ export function createExperiment(
   });
 }
 
-export function startGenerationRun(
+export function runGeneration(
   experimentId: number,
-): Promise<GenerationRun> {
-  return request<GenerationRun>(
-    `/experiments/${experimentId}/runs`,
+): Promise<GenerationSummary[]> {
+  return request<GenerationSummary[]>(
+    `/experiments/${experimentId}/generations`,
     {
       method: "POST",
       body: JSON.stringify({ generation_count: 1 }),
@@ -120,16 +119,4 @@ export function startGenerationRun(
   );
 }
 
-export function getGenerationRun(
-  runId: number,
-): Promise<GenerationRun> {
-  return request<GenerationRun>(`/runs/${runId}`);
-}
 
-export function getActiveGenerationRun(
-  experimentId: number,
-): Promise<GenerationRun | null> {
-  return request<GenerationRun | null>(
-    `/experiments/${experimentId}/runs/active`,
-  );
-}

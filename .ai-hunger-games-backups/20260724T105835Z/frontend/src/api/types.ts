@@ -13,24 +13,6 @@ export interface CreateExperimentInput {
   preset: ExperimentPreset;
 }
 
-export type GenerationRunStatus =
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed";
-
-export interface GenerationRun {
-  id: number;
-  experiment_id: number;
-  status: GenerationRunStatus;
-  generation_number: number;
-  game_id: number | null;
-  error_message: string | null;
-  created_at: string;
-  started_at: string | null;
-  completed_at: string | null;
-}
-
 
 export interface Agent {
   agent_id: string;

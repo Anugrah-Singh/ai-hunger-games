@@ -2,14 +2,14 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ai_hunger_games.db_models import GenerationRunRecord
 
-ACTIVE_RUN_STATUSES = ("queued", "running")
-ABANDONED_RUN_MESSAGE = (
-    "The server restarted before this generation finished. Start a new run."
+ACTIVE_RUN_STATUSES = (
+    "queued",
+    "running",
 )
 
 
@@ -22,7 +22,10 @@ class GenerationRunNotFoundError(LookupError):
 
 
 class GenerationRunRepository:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+    ) -> None:
         self.session = session
 
     async def create_queued_run(
@@ -48,6 +51,7 @@ class GenerationRunRepository:
             started_at=None,
             completed_at=None,
         )
+
         self.session.add(run)
 
         try:
@@ -56,14 +60,23 @@ class GenerationRunRepository:
             await self.session.rollback()
             raise
 
-        # expire_on_commit=False keeps generated values, including the flushed ID,
-        # available without opening another SQLite read transaction.
+        await self.session.refresh(run)
+
         return run
 
-    async def get_run(self, run_id: int) -> GenerationRunRecord | None:
-        return await self.session.get(GenerationRunRecord, run_id)
+    async def get_run(
+        self,
+        run_id: int,
+    ) -> GenerationRunRecord | None:
+        return await self.session.get(
+            GenerationRunRecord,
+            run_id,
+        )
 
-    async def require_run(self, run_id: int) -> GenerationRunRecord:
+    async def require_run(
+        self,
+        run_id: int,
+    ) -> GenerationRunRecord:
         run = await self.get_run(run_id)
 
         if run is None:
@@ -84,15 +97,22 @@ class GenerationRunRepository:
             .order_by(GenerationRunRecord.id.desc())
             .limit(1)
         )
+
         return result.scalar_one_or_none()
 
-    async def mark_running(self, run_id: int) -> GenerationRunRecord:
+    async def mark_running(
+        self,
+        run_id: int,
+    ) -> GenerationRunRecord:
         run = await self.require_run(run_id)
+
         run.status = "running"
         run.started_at = datetime.now(timezone.utc)
-        run.completed_at = None
         run.error_message = None
+
         await self.session.commit()
+        await self.session.refresh(run)
+
         return run
 
     async def mark_completed(
@@ -102,11 +122,15 @@ class GenerationRunRepository:
         game_id: int,
     ) -> GenerationRunRecord:
         run = await self.require_run(run_id)
+
         run.status = "completed"
         run.game_id = game_id
         run.completed_at = datetime.now(timezone.utc)
         run.error_message = None
+
         await self.session.commit()
+        await self.session.refresh(run)
+
         return run
 
     async def mark_failed(
@@ -116,24 +140,12 @@ class GenerationRunRepository:
         error_message: str,
     ) -> GenerationRunRecord:
         run = await self.require_run(run_id)
+
         run.status = "failed"
         run.completed_at = datetime.now(timezone.utc)
         run.error_message = error_message[:1000]
+
         await self.session.commit()
+        await self.session.refresh(run)
+
         return run
-
-    async def fail_abandoned_runs(self) -> int:
-        """Release active-run constraints left behind by a prior process."""
-
-        now = datetime.now(timezone.utc)
-        result = await self.session.execute(
-            update(GenerationRunRecord)
-            .where(GenerationRunRecord.status.in_(ACTIVE_RUN_STATUSES))
-            .values(
-                status="failed",
-                error_message=ABANDONED_RUN_MESSAGE,
-                completed_at=now,
-            )
-        )
-        await self.session.commit()
-        return int(result.rowcount or 0)
