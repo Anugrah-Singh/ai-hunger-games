@@ -100,6 +100,32 @@ beforeEach(() => {
 });
 
 describe("useGenerationRun", () => {
+  it("does not poll for an active run while idle", async () => {
+    renderHook(
+      () =>
+        useGenerationRun({
+          experimentId: 3,
+          onCompleted: vi.fn(),
+          onFailed: vi.fn(),
+        }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(
+        getActiveGenerationRunMock,
+      ).toHaveBeenCalledOnce();
+    });
+
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 2_100);
+    });
+
+    expect(
+      getActiveGenerationRunMock,
+    ).toHaveBeenCalledOnce();
+  });
+
   it("starts a run and exposes its queued state", async () => {
     const queuedRun = generationRun("queued");
     startGenerationRunMock.mockResolvedValue(queuedRun);

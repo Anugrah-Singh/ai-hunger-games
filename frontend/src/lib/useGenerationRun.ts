@@ -61,7 +61,6 @@ export function useGenerationRun({
       "active-generation-run",
       experimentId,
     ],
-    refetchInterval: 2_000,
   });
 
   useEffect(() => {
