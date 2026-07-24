@@ -91,6 +91,11 @@ export function useGenerationRun({
     },
   });
 
+  const run =
+    runQuery.data
+    ?? activeRunQuery.data
+    ?? null;
+
   useEffect(() => {
     const run = runQuery.data;
 
@@ -182,6 +187,16 @@ export function useGenerationRun({
         );
       }
 
+      if (
+        run !== null
+        && activeStatuses.has(run.status)
+      ) {
+        throw new Error(
+          "A generation is already active "
+          + "for this experiment.",
+        );
+      }
+
       return startGenerationRun(experimentId);
     },
 
@@ -205,11 +220,6 @@ export function useGenerationRun({
 
     retry: false,
   });
-
-  const run =
-    runQuery.data
-    ?? activeRunQuery.data
-    ?? null;
 
   const isRunning =
     startMutation.isPending

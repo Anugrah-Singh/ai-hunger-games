@@ -172,6 +172,11 @@ GET  /generations/{game_id}/votes
 
 The dashboard starts a durable run and polls its status instead of holding one HTTP request open. A partial unique index prevents more than one queued or running generation per experiment, while repository stale-plan validation still protects the final save. Active rows left by a process restart are marked failed during startup so the experiment can be run again.
 
+`POST /experiments/{experiment_id}/generations` is retained as a deprecated
+synchronous compatibility route for the CLI and existing integrations. New
+browser and API integrations should use `POST /experiments/{experiment_id}/runs`
+and poll `GET /runs/{run_id}`.
+
 The API has no authentication or authorization layer. Keep it bound to
 `127.0.0.1` and do not expose it to a network while it has access to a Groq API
 key or local experiment history.

@@ -201,6 +201,21 @@ async def test_api_accepts_one_generation_per_run_request(
 
 
 @pytest.mark.asyncio
+async def test_openapi_marks_synchronous_generation_route_as_deprecated(
+    api_client: httpx.AsyncClient,
+) -> None:
+    response = await api_client.get("/openapi.json")
+
+    assert response.status_code == 200
+    assert (
+        response.json()["paths"]["/experiments/{experiment_id}/generations"]["post"][
+            "deprecated"
+        ]
+        is True
+    )
+
+
+@pytest.mark.asyncio
 async def test_api_hides_unexpected_generation_failure(
     api_client: httpx.AsyncClient,
     monkeypatch: pytest.MonkeyPatch,

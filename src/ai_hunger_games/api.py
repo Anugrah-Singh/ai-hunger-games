@@ -344,6 +344,7 @@ def create_app(
 
     @app.post(
         "/experiments/{experiment_id}/generations",
+        deprecated=True,
         response_model=list[GenerationSummaryResponse],
     )
     async def run_experiment_generations(
