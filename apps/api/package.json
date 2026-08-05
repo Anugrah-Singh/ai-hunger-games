@@ -1,0 +1,29 @@
+{
+  "name": "@ai-hunger-games/api",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "predev": "npm run build --workspace @ai-hunger-games/contracts",
+    "dev": "node --env-file-if-exists=../../.env --import tsx --watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=../../.env dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-hunger-games/contracts": "2.0.0",
+    "@ai-sdk/anthropic": "4.0.19",
+    "@ai-sdk/google": "4.0.19",
+    "@ai-sdk/openai": "4.0.20",
+    "@ai-sdk/openai-compatible": "3.0.16",
+    "@fastify/cors": "11.3.0",
+    "@fastify/helmet": "13.1.0",
+    "@fastify/rate-limit": "11.1.0",
+    "ai": "7.0.48",
+    "fastify": "5.10.0",
+    "redis": "6.1.0",
+    "zod": "4.4.3"
+  }
+}
