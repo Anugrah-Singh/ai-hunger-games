@@ -7,7 +7,9 @@ export function ErrorBanner({ message, onDismiss }: { message: string; onDismiss
       className="fade-in-up mt-6 flex items-start justify-between gap-4 rounded-lg border border-red-500/50 bg-red-950/40 p-4 text-red-100 backdrop-blur-sm"
     >
       <div>
-        <p className="text-xs font-bold tracking-wider text-red-400 uppercase">Arena transmission failed</p>
+        <p className="text-xs font-bold tracking-wider text-red-400 uppercase">
+          Arena transmission failed
+        </p>
         <p className="mt-1 text-sm text-red-200/90 leading-relaxed">{message}</p>
       </div>
       <button

@@ -1,0 +1,88 @@
+services:
+  # ── Backend API (Fastify) ────────────────────────────────────────────────────
+  - type: web
+    name: ai-hunger-games-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npm run build --workspace @ai-hunger-games/contracts && npm run build --workspace @ai-hunger-games/api
+    startCommand: npm run start --workspace @ai-hunger-games/api
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.19.0
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: 'true'
+
+      # CORS: enter the static site URL after first deploy, e.g. https://ai-hunger-games.onrender.com
+      - key: WEB_ORIGINS
+        sync: false
+
+      # ── LLM provider (starts in mock mode — no API credits consumed) ────────
+      - key: LLM_PROVIDER
+        value: mock
+      - key: LLM_PROVIDER_NAME
+        value: mock
+      - key: LLM_MODEL
+        value: deterministic-local-model
+      - key: LLM_SUPPORTS_STRUCTURED_OUTPUTS
+        value: 'true'
+
+      # ── AI generation tuning ─────────────────────────────────────────────────
+      - key: AI_TIMEOUT_MS
+        value: '30000'
+      - key: AI_MAX_RETRIES
+        value: '2'
+      - key: AI_CONCURRENCY
+        value: '3'
+      - key: AI_MAX_ANSWER_TOKENS
+        value: '140'
+      - key: AI_MAX_VOTE_TOKENS
+        value: '100'
+
+      # ── Request tracking ─────────────────────────────────────────────────────
+      - key: REQUEST_TRACKING_MODE
+        value: memory
+      - key: REQUEST_LIMIT
+        value: '200'
+      - key: COUNTER_FAILURE_MODE
+        value: closed
+      # Render generates a random secret; find it in the dashboard after deploy
+      - key: ADMIN_KEY
+        generateValue: true
+
+      # ── HTTP protection ───────────────────────────────────────────────────────
+      - key: HTTP_RATE_LIMIT
+        value: '60'
+      - key: HTTP_RATE_WINDOW_MS
+        value: '60000'
+
+  # ── React Frontend (Vite static bundle) ─────────────────────────────────────
+  - type: static
+    name: ai-hunger-games
+    region: oregon
+    buildCommand: npm ci && npm run build --workspace @ai-hunger-games/contracts && npm run build --workspace @ai-hunger-games/web
+    staticPublishPath: ./apps/web/dist
+    # SPA rewrite: any path → index.html
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    # Cache strategy: fingerprinted assets cached forever, HTML always revalidated
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    envVars:
+      - key: NODE_VERSION
+        value: 24.19.0
+      # Enter the API URL after first deploy, e.g. https://ai-hunger-games-api.onrender.com
+      - key: VITE_API_URL
+        sync: false

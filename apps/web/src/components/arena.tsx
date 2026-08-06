@@ -40,9 +40,7 @@ export function Arena({ personalities, votes, cumulativeScores }: ArenaProps) {
           return (
             <article
               key={personality.id}
-              aria-label={
-                personality.alive ? personality.name : `${personality.name} — eliminated`
-              }
+              aria-label={personality.alive ? personality.name : `${personality.name} — eliminated`}
               className={`relative flex flex-col items-center rounded-xl border p-4 transition-all duration-300 ${
                 personality.alive
                   ? `border-zinc-800 bg-zinc-900/70 ${personality.theme.glow} shadow-md hover:-translate-y-1 hover:border-amber-500/40 hover:bg-zinc-900`
@@ -93,14 +91,14 @@ export function Arena({ personalities, votes, cumulativeScores }: ArenaProps) {
                 </div>
               ) : null}
 
-            {!personality.alive ? (
-              <div className="mt-3 w-full rounded border border-zinc-800 bg-zinc-950 py-1 text-center text-[0.65rem] font-semibold tracking-wider text-zinc-500 uppercase">
-                Eliminated
-              </div>
-            ) : null}
-          </article>
-        );
-      })}
+              {!personality.alive ? (
+                <div className="mt-3 w-full rounded border border-zinc-800 bg-zinc-950 py-1 text-center text-[0.65rem] font-semibold tracking-wider text-zinc-500 uppercase">
+                  Eliminated
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
       </div>
     </section>
   );

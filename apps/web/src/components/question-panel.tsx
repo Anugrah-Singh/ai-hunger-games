@@ -8,7 +8,10 @@ interface QuestionPanelProps {
 
 export function QuestionPanel({ question, onQuestionChange, onSubmit }: QuestionPanelProps) {
   return (
-    <section className="control-panel fade-in-up mt-8 p-5 sm:p-8" aria-labelledby="question-heading">
+    <section
+      className="control-panel fade-in-up mt-8 p-5 sm:p-8"
+      aria-labelledby="question-heading"
+    >
       <div className="mb-4 flex items-center gap-3">
         <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
         <h2

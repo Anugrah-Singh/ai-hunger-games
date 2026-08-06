@@ -293,4 +293,5 @@ Serve `apps/web/dist` through a static host or reverse proxy and set `VITE_API_U
 ## Licence
 
 MIT. See `LICENSE` for the required notices covering the supplied source and this TypeScript rewrite.
+
 # ai-hunger-games

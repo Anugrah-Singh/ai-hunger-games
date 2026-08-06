@@ -33,9 +33,7 @@ export default function App() {
     const eliminated = state.personalities.find((p) => p.id === state.eliminatedId);
     if (!eliminated) return;
 
-    const remainingNames = state.personalities
-      .filter((p) => p.alive)
-      .map((p) => p.name);
+    const remainingNames = state.personalities.filter((p) => p.alive).map((p) => p.name);
 
     setIsGeneratingReplacement(true);
     const controller = freshController();

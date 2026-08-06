@@ -89,11 +89,11 @@ function resolveVotes(state: GameState): GameState {
   }
 
   // End of 8-round generation window — eliminate the lowest scorer among alive personalities
-  const scores = new Map(alive.map((personality) => [personality.id, updatedScores[personality.id] ?? 0]));
+  const scores = new Map(
+    alive.map((personality) => [personality.id, updatedScores[personality.id] ?? 0]),
+  );
   const minimum = Math.min(...scores.values());
-  const tiedIds = [...scores.entries()]
-    .filter(([, score]) => score === minimum)
-    .map(([id]) => id);
+  const tiedIds = [...scores.entries()].filter(([, score]) => score === minimum).map(([id]) => id);
 
   if (tiedIds.length > 1) return { ...stateWithScores, tiedIds, phase: 'tieBreak' };
   const eliminatedId = tiedIds[0];

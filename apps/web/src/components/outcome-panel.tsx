@@ -42,7 +42,9 @@ export function OutcomePanel({
       <h2 className="mt-2 text-3xl font-bold tracking-wide text-white uppercase sm:text-5xl">
         {eliminated.name}
       </h2>
-      <p className="mt-2 text-sm text-zinc-400 leading-relaxed max-w-md mx-auto">{eliminated.trait}</p>
+      <p className="mt-2 text-sm text-zinc-400 leading-relaxed max-w-md mx-auto">
+        {eliminated.trait}
+      </p>
 
       {isGeneratingReplacement ? (
         <div className="mt-7 flex items-center justify-center gap-3 text-amber-300">
