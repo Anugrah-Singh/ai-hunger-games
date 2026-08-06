@@ -62,8 +62,9 @@ services:
         value: '60000'
 
   # ── React Frontend (Vite static bundle) ─────────────────────────────────────
-  - type: static
+  - type: web
     name: ai-hunger-games
+    runtime: static
     region: oregon
     buildCommand: npm ci && npm run build --workspace @ai-hunger-games/contracts && npm run build --workspace @ai-hunger-games/web
     staticPublishPath: ./apps/web/dist
@@ -72,6 +73,7 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
     # Cache strategy: fingerprinted assets cached forever, HTML always revalidated
     headers:
       - path: /assets/*
