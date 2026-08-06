@@ -65,8 +65,8 @@ services:
   - type: web
     name: ai-hunger-games
     runtime: static
-    region: oregon
     buildCommand: npm ci && npm run build --workspace @ai-hunger-games/contracts && npm run build --workspace @ai-hunger-games/web
+
     staticPublishPath: ./apps/web/dist
     # SPA rewrite: any path → index.html
     routes:
