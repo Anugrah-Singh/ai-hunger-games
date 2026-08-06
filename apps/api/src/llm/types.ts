@@ -23,4 +23,8 @@ export interface LlmClient {
   readonly model: string;
   generateAnswer(question: string, personality: PersonalityInput): Promise<string>;
   generateVote(input: GenerateVoteInput): Promise<GeneratedVote>;
+  generatePersonality(
+    eliminatedName: string,
+    remainingNames: string[],
+  ): Promise<{ name: string; trait: string }>;
 }

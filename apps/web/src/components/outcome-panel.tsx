@@ -1,13 +1,19 @@
-import { Crown, Skull } from 'lucide-react';
+import { Crown, LoaderCircle, Skull } from 'lucide-react';
 import type { Personality } from '../types/game.js';
 
 interface OutcomePanelProps {
   eliminated: Personality | undefined;
   winner: Personality | undefined;
+  isGeneratingReplacement: boolean;
   onNextRound: () => void;
 }
 
-export function OutcomePanel({ eliminated, winner, onNextRound }: OutcomePanelProps) {
+export function OutcomePanel({
+  eliminated,
+  winner,
+  isGeneratingReplacement,
+  onNextRound,
+}: OutcomePanelProps) {
   if (winner) {
     return (
       <section className="winner-panel fade-in-up mt-8 overflow-hidden rounded-2xl border border-amber-400/60 p-8 text-center sm:p-12">
@@ -31,19 +37,27 @@ export function OutcomePanel({ eliminated, winner, onNextRound }: OutcomePanelPr
     <section className="elimination-panel fade-in-up mt-8 rounded-2xl border border-amber-700/60 p-8 text-center sm:p-12">
       <Skull aria-hidden="true" size={64} className="mx-auto animate-pulse text-amber-500" />
       <p className="mt-4 text-xs font-semibold tracking-[0.3em] text-amber-500 uppercase">
-        Eliminated
+        Eliminated after 8 rounds
       </p>
       <h2 className="mt-2 text-3xl font-bold tracking-wide text-white uppercase sm:text-5xl">
         {eliminated.name}
       </h2>
       <p className="mt-2 text-sm text-zinc-400 leading-relaxed max-w-md mx-auto">{eliminated.trait}</p>
-      <button
-        type="button"
-        onClick={onNextRound}
-        className="mt-7 rounded-md border border-amber-400 bg-amber-600 px-8 py-3.5 text-sm font-bold tracking-wider text-white uppercase shadow-lg shadow-amber-600/20 transition-all hover:bg-amber-500 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-      >
-        Continue to next round
-      </button>
+
+      {isGeneratingReplacement ? (
+        <div className="mt-7 flex items-center justify-center gap-3 text-amber-300">
+          <LoaderCircle className="animate-spin text-amber-400" size={20} />
+          <span className="text-sm font-semibold">Generating replacement AI personality...</span>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onNextRound}
+          className="mt-7 rounded-md border border-amber-400 bg-amber-600 px-8 py-3.5 text-sm font-bold tracking-wider text-white uppercase shadow-lg shadow-amber-600/20 transition-all hover:bg-amber-500 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        >
+          Begin Next Generation
+        </button>
+      )}
     </section>
   );
 }

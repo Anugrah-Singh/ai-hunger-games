@@ -18,12 +18,17 @@ export type GamePhase =
   | 'reviewAnswers'
   | 'generatingVotes'
   | 'reviewVotes'
+  | 'roundComplete'
   | 'tieBreak'
   | 'eliminated'
   | 'winner';
 
 export interface GameState {
   phase: GamePhase;
+  generationNumber: number;
+  roundInGeneration: number;
+  cumulativeScores: Record<number, number>;
+  nextPersonalityId: number;
   round: number;
   question: string;
   personalities: Personality[];

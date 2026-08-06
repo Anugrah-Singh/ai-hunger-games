@@ -1,7 +1,7 @@
 import { LoaderCircle } from 'lucide-react';
 import type { Vote } from '@ai-hunger-games/contracts';
 import type { GamePhase, Personality } from '../types/game.js';
-import { voteCount } from '../state/game-reducer.js';
+import { ROUNDS_PER_GENERATION, voteCount } from '../state/game-reducer.js';
 
 interface VotingPanelProps {
   phase: GamePhase;
@@ -9,6 +9,7 @@ interface VotingPanelProps {
   personalities: Personality[];
   tiedIds: number[];
   elapsedSeconds: number;
+  roundInGeneration: number;
   onResolve: () => void;
   onBreakTie: (id: number) => void;
 }
@@ -19,6 +20,7 @@ export function VotingPanel({
   personalities,
   tiedIds,
   elapsedSeconds,
+  roundInGeneration,
   onResolve,
   onBreakTie,
 }: VotingPanelProps) {
@@ -28,7 +30,7 @@ export function VotingPanel({
     <section className="vote-panel fade-in-up mt-8 p-5 sm:p-8" aria-live="polite">
       <div className="mb-6 text-center">
         <h2 className="inline-block rounded-md border border-amber-700/60 bg-zinc-950 px-6 py-2 text-lg font-bold tracking-widest text-amber-400 uppercase">
-          Elimination votes
+          Best answer votes
         </h2>
       </div>
 
@@ -41,12 +43,12 @@ export function VotingPanel({
           return (
             <article
               key={vote.voter}
-              className="rounded-r-xl border-l-4 border-amber-600/80 border-y border-r border-zinc-800/60 bg-zinc-900/60 p-4"
+              className="rounded-r-xl border-l-4 border-emerald-600/80 border-y border-r border-zinc-800/60 bg-zinc-900/60 p-4"
             >
               <p className="font-semibold text-sm">
                 <span className={voter.theme.text}>{voter.name}</span>
                 <span className="px-2 text-zinc-500">→</span>
-                <span className="font-bold text-red-400">Eliminate {target.name}</span>
+                <span className="font-bold text-emerald-400">Best answer: {target.name}</span>
               </p>
               <p className="mt-2 border-l-2 border-zinc-700/80 pl-3 text-xs leading-relaxed text-zinc-300 italic">
                 “{vote.reason}”
@@ -75,7 +77,9 @@ export function VotingPanel({
             onClick={onResolve}
             className="rounded-md border border-amber-400 bg-amber-600 px-8 py-3.5 text-sm font-bold tracking-wider text-white uppercase shadow-lg shadow-amber-600/20 transition-all hover:bg-amber-500 hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
           >
-            Reveal elimination
+            {roundInGeneration >= ROUNDS_PER_GENERATION
+              ? 'Reveal final scores & eliminate lowest'
+              : `Lock in round ${roundInGeneration} scores`}
           </button>
         </div>
       ) : null}

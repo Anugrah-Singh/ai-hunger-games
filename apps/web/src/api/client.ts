@@ -1,9 +1,12 @@
 import {
   answersResponseSchema,
   apiErrorSchema,
+  generatePersonalityResponseSchema,
   votesResponseSchema,
   type AnswersRequest,
   type AnswersResponse,
+  type GeneratePersonalityRequest,
+  type GeneratePersonalityResponse,
   type VotesRequest,
   type VotesResponse,
 } from '@ai-hunger-games/contracts';
@@ -75,6 +78,17 @@ export const api = {
       '/api/vote',
       { method: 'POST', body: JSON.stringify(payload), ...(signal ? { signal } : {}) },
       votesResponseSchema,
+    );
+  },
+
+  generatePersonality(
+    payload: GeneratePersonalityRequest,
+    signal?: AbortSignal,
+  ): Promise<GeneratePersonalityResponse> {
+    return request(
+      '/api/generate-personality',
+      { method: 'POST', body: JSON.stringify(payload), ...(signal ? { signal } : {}) },
+      generatePersonalityResponseSchema,
     );
   },
 };

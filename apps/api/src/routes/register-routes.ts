@@ -1,8 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import {
   answersRequestSchema,
+  generatePersonalityRequestSchema,
   votesRequestSchema,
   type AnswersRequest,
+  type GeneratePersonalityRequest,
   type StatusResponse,
   type VotesRequest,
 } from '@ai-hunger-games/contracts';
@@ -15,6 +17,7 @@ import { parseBody } from '../http/validation.js';
 import { consumeQuota, setQuotaHeaders } from '../http/quota.js';
 import { secretsMatch } from '../http/security.js';
 import { AnswerService } from '../services/answer-service.js';
+import { PersonalityService } from '../services/personality-service.js';
 import { VoteService } from '../services/vote-service.js';
 
 export interface RouteDependencies {
@@ -38,6 +41,7 @@ export function registerRoutes(app: FastifyInstance, dependencies: RouteDependen
   const { config, llm, counter } = dependencies;
   const answers = new AnswerService(llm, config.AI_CONCURRENCY);
   const votes = new VoteService(llm, config.AI_CONCURRENCY);
+  const personalities = new PersonalityService(llm);
 
   app.post('/api/answers', async (request, reply) => {
     const body = parseBody<AnswersRequest>(answersRequestSchema, request.body);
@@ -51,6 +55,16 @@ export function registerRoutes(app: FastifyInstance, dependencies: RouteDependen
     await consumeQuota(counter, reply);
     const generatedVotes = await votes.generate(body.question, body.responses);
     return reply.code(200).send({ votes: generatedVotes });
+  });
+
+  app.post('/api/generate-personality', async (request, reply) => {
+    const body = parseBody<GeneratePersonalityRequest>(
+      generatePersonalityRequestSchema,
+      request.body,
+    );
+    await consumeQuota(counter, reply);
+    const personality = await personalities.generate(body.eliminatedName, body.remainingNames);
+    return reply.code(200).send({ personality });
   });
 
   app.get('/api/status', async (_request, reply) => {

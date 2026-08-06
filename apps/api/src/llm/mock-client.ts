@@ -15,7 +15,17 @@ export class MockLlmClient implements LlmClient {
 
     return {
       candidateKey: candidate.key,
-      reason: 'This answer is the least aligned with my perspective.',
+      reason: 'This answer is the most effective and aligned with my perspective.',
+    };
+  }
+
+  public async generatePersonality(
+    _eliminatedName: string,
+    _remainingNames: string[],
+  ): Promise<{ name: string; trait: string }> {
+    return {
+      name: 'The Synthesizer',
+      trait: 'Integrates opposing viewpoints into a unified framework.',
     };
   }
 }

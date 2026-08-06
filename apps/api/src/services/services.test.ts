@@ -4,6 +4,8 @@ import type { GenerateVoteInput, GeneratedVote, LlmClient } from '../llm/types.j
 import { AnswerService } from './answer-service.js';
 import { VoteService } from './vote-service.js';
 
+import { PersonalityService } from './personality-service.js';
+
 class FakeLlm implements LlmClient {
   public readonly provider = 'fake';
   public readonly model = 'fake-model';
@@ -16,6 +18,13 @@ class FakeLlm implements LlmClient {
     const candidate = input.candidates.at(-1);
     if (!candidate) throw new Error('Missing candidate');
     return { candidateKey: candidate.key, reason: 'The reasoning is less convincing.' };
+  }
+
+  public async generatePersonality(
+    _eliminatedName: string,
+    _remainingNames: string[],
+  ): Promise<{ name: string; trait: string }> {
+    return { name: 'The Visionary II', trait: 'Forward-looking perspective.' };
   }
 }
 
@@ -98,5 +107,13 @@ describe('domain services', () => {
 
     expect(first).toEqual(second);
     expect(first.every((vote) => vote.voter !== vote.votedFor)).toBe(true);
+  });
+
+  it('generates a new personality via PersonalityService', async () => {
+    const service = new PersonalityService(new FakeLlm());
+    const result = await service.generate('The Philosopher', ['The Pragmatist', 'The Optimist']);
+
+    expect(result.name).toBe('The Visionary II');
+    expect(result.trait).toBe('Forward-looking perspective.');
   });
 });

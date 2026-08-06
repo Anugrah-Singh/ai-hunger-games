@@ -39,9 +39,21 @@ function votePrompt(input: GenerateVoteInput): string {
     'Other anonymous answers:',
     options,
     '',
-    'Choose exactly one candidate whose answer is least convincing or least aligned with your perspective.',
+    'Choose exactly one candidate whose answer is most effective, insightful, or superior.',
     'Return the candidate key and one brief, complete reason.',
     'Never choose yourself; your own answer is not listed.',
+  ].join('\n');
+}
+
+function personalityPrompt(eliminatedName: string, remainingNames: string[]): string {
+  return [
+    'You are designing a new participant for a fictional AI debate tournament.',
+    `"${eliminatedName}" has just been eliminated.`,
+    `Remaining participants: ${remainingNames.join(', ')}.`,
+    'Invent a completely new personality archetype — a unique worldview and debate style.',
+    'It must contrast meaningfully with the remaining participants.',
+    'Return valid JSON only (no markdown, no extra text):',
+    '{"name":"The <Archetype>","trait":"<One sentence describing their debate approach and perspective>"}',
   ].join('\n');
 }
 
@@ -169,5 +181,29 @@ export class AiSdkLlmClient implements LlmClient {
     }
 
     return parsed.data;
+  }
+
+  public async generatePersonality(
+    eliminatedName: string,
+    remainingNames: string[],
+  ): Promise<{ name: string; trait: string }> {
+    const result = await generateText({
+      model: this.languageModel,
+      system: 'You are a creative game designer. Return only valid JSON.',
+      prompt: personalityPrompt(eliminatedName, remainingNames),
+      maxOutputTokens: 120,
+      maxRetries: this.config.AI_MAX_RETRIES,
+      timeout: this.config.AI_TIMEOUT_MS,
+    });
+
+    const parsed = extractJsonObject(result.text) as { name?: string; trait?: string } | undefined;
+    if (!parsed?.name || !parsed?.trait) {
+      throw new Error('The provider returned an invalid personality payload');
+    }
+
+    return {
+      name: String(parsed.name).trim().slice(0, 80),
+      trait: String(parsed.trait).trim().slice(0, 240),
+    };
   }
 }
