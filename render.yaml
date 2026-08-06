@@ -5,7 +5,7 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm ci && npm run build --workspace @ai-hunger-games/contracts && npm run build --workspace @ai-hunger-games/api
+    buildCommand: npm ci --include=dev && npm run build --workspace @ai-hunger-games/contracts && npm run build --workspace @ai-hunger-games/api
     startCommand: npm run start --workspace @ai-hunger-games/api
     healthCheckPath: /health
     envVars:
@@ -65,7 +65,7 @@ services:
   - type: web
     name: ai-hunger-games
     runtime: static
-    buildCommand: npm ci && npm run build --workspace @ai-hunger-games/contracts && npm run build --workspace @ai-hunger-games/web
+    buildCommand: npm ci --include=dev && npm run build --workspace @ai-hunger-games/contracts && npm run build --workspace @ai-hunger-games/web
 
     staticPublishPath: ./apps/web/dist
     # SPA rewrite: any path → index.html
