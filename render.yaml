@@ -26,11 +26,15 @@ services:
       - key: LLM_PROVIDER
         value: google
       - key: LLM_MODEL
-        value: gemini-3.5-flash-lite
+        value: gemini-3.5-flash
       - key: LLM_API_KEY
         sync: false
       - key: REQUEST_TRACKING_MODE
         value: disabled
+      - key: AI_MAX_ANSWER_TOKENS
+        value: '1000'
+      - key: AI_MAX_VOTE_TOKENS
+        value: '1000'
 
   # ── React Frontend (Vite static bundle) ─────────────────────────────────────
   - type: web
