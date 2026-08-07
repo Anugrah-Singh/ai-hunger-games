@@ -22,44 +22,13 @@ services:
       - key: WEB_ORIGINS
         sync: false
 
-      # ── LLM provider (starts in mock mode — no API credits consumed) ────────
+      # ── LLM provider (Google Gemini) ────────
       - key: LLM_PROVIDER
-        value: mock
-      - key: LLM_PROVIDER_NAME
-        value: mock
+        value: google
       - key: LLM_MODEL
-        value: deterministic-local-model
-      - key: LLM_SUPPORTS_STRUCTURED_OUTPUTS
-        value: 'true'
-
-      # ── AI generation tuning ─────────────────────────────────────────────────
-      - key: AI_TIMEOUT_MS
-        value: '30000'
-      - key: AI_MAX_RETRIES
-        value: '2'
-      - key: AI_CONCURRENCY
-        value: '3'
-      - key: AI_MAX_ANSWER_TOKENS
-        value: '140'
-      - key: AI_MAX_VOTE_TOKENS
-        value: '100'
-
-      # ── Request tracking ─────────────────────────────────────────────────────
-      - key: REQUEST_TRACKING_MODE
-        value: memory
-      - key: REQUEST_LIMIT
-        value: '200'
-      - key: COUNTER_FAILURE_MODE
-        value: closed
-      # Render generates a random secret; find it in the dashboard after deploy
-      - key: ADMIN_KEY
-        generateValue: true
-
-      # ── HTTP protection ───────────────────────────────────────────────────────
-      - key: HTTP_RATE_LIMIT
-        value: '60'
-      - key: HTTP_RATE_WINDOW_MS
-        value: '60000'
+        value: gemini-3.5-flash-lite
+      - key: LLM_API_KEY
+        sync: false
 
   # ── React Frontend (Vite static bundle) ─────────────────────────────────────
   - type: web
