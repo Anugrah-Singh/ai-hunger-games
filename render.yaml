@@ -34,7 +34,7 @@ services:
       - key: AI_MAX_ANSWER_TOKENS
         value: '1000'
       - key: AI_MAX_VOTE_TOKENS
-        value: '1000'
+        value: '500'
 
   # ── React Frontend (Vite static bundle) ─────────────────────────────────────
   - type: web
