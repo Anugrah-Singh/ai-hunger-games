@@ -27,7 +27,7 @@ export function VotingPanel({
   const generating = phase === 'generatingVotes';
 
   return (
-    <section className="vote-panel fade-in-up mt-8 p-5 sm:p-8" aria-live="polite">
+    <section className="border border-amber-900/40 bg-gradient-to-br from-[#231208]/75 to-zinc-950/98 rounded-lg animate-[fadeInUp_300ms_cubic-bezier(0,0,0.2,1)_both] mt-8 p-5 sm:p-8" aria-live="polite">
       <div className="mb-6 text-center">
         <h2 className="inline-block rounded-md border border-amber-700/60 bg-zinc-950 px-6 py-2 text-lg font-bold tracking-widest text-amber-400 uppercase">
           Best answer votes

@@ -2,11 +2,14 @@ import {
   answersResponseSchema,
   apiErrorSchema,
   generatePersonalityResponseSchema,
+  singleVoteResponseSchema,
   votesResponseSchema,
   type AnswersRequest,
   type AnswersResponse,
   type GeneratePersonalityRequest,
   type GeneratePersonalityResponse,
+  type SingleVoteRequest,
+  type SingleVoteResponse,
   type VotesRequest,
   type VotesResponse,
 } from '@ai-hunger-games/contracts';
@@ -38,9 +41,11 @@ async function readJson(response: Response): Promise<unknown> {
 async function request<T>(path: string, init: RequestInit, schema: ZodType<T>): Promise<T> {
   let response: Response;
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(init.headers as Record<string, string>) };
+    
     response = await fetch(`${baseUrl}${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...init.headers },
+      headers,
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
@@ -78,6 +83,17 @@ export const api = {
       '/api/vote',
       { method: 'POST', body: JSON.stringify(payload), ...(signal ? { signal } : {}) },
       votesResponseSchema,
+    );
+  },
+
+  generateSingleVote(
+    payload: SingleVoteRequest,
+    signal?: AbortSignal,
+  ): Promise<SingleVoteResponse> {
+    return request(
+      '/api/vote/single',
+      { method: 'POST', body: JSON.stringify(payload), ...(signal ? { signal } : {}) },
+      singleVoteResponseSchema,
     );
   },
 

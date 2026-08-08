@@ -35,6 +35,7 @@ export interface GameState {
   answers: Answer[];
   votes: Vote[];
   eliminatedId: number | undefined;
+  replacementPersonality: Personality | undefined;
   tiedIds: number[];
   error: string | undefined;
 }

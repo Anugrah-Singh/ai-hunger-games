@@ -6,14 +6,30 @@ export interface VoteCandidate {
   answer: string;
 }
 
-export interface GenerateVoteInput {
+export interface GenerateAnswersInput {
   question: string;
+  personalities: PersonalityInput[];
+}
+
+export interface BatchedGeneratedAnswer {
+  id: number;
+  answer: string;
+}
+
+export interface VoterInput {
   voterId: number;
   voterAnswer: string;
+  voterPersonality?: PersonalityInput;
+}
+
+export interface GenerateVotesInput {
+  question: string;
+  voters: VoterInput[];
   candidates: VoteCandidate[];
 }
 
-export interface GeneratedVote {
+export interface BatchedGeneratedVote {
+  voterId: number;
   candidateKey: string;
   reason: string;
 }
@@ -21,8 +37,8 @@ export interface GeneratedVote {
 export interface LlmClient {
   readonly provider: string;
   readonly model: string;
-  generateAnswer(question: string, personality: PersonalityInput): Promise<string>;
-  generateVote(input: GenerateVoteInput): Promise<GeneratedVote>;
+  generateAnswers(input: GenerateAnswersInput): Promise<BatchedGeneratedAnswer[]>;
+  generateVotes(input: GenerateVotesInput): Promise<BatchedGeneratedVote[]>;
   generatePersonality(
     eliminatedName: string,
     remainingNames: string[],

@@ -22,7 +22,7 @@ function getInitials(name: string): string {
 
 export function Arena({ personalities, votes, cumulativeScores }: ArenaProps) {
   return (
-    <section className="arena-panel mt-8 p-5 sm:p-8" aria-labelledby="arena-heading">
+    <section className="border border-zinc-800 bg-gradient-to-b from-zinc-900/95 to-zinc-950/98 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] rounded-lg mt-8 p-5 sm:p-8" aria-labelledby="arena-heading">
       <div className="mb-6 text-center">
         <h2
           id="arena-heading"

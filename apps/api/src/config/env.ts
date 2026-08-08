@@ -42,18 +42,15 @@ const envSchema = z
 
     LLM_PROVIDER: z
       .enum(['openai', 'anthropic', 'google', 'openai-compatible', 'mock'])
-      .default('openai-compatible'),
-    LLM_PROVIDER_NAME: z.string().trim().min(1).default('custom'),
-    LLM_MODEL: z.string().trim().min(1).default('mistralai/Mistral-7B-Instruct-v0.2'),
+      .default('google'),
+    LLM_MODEL: z.string().trim().min(1).default('gemini-3.5-flash-lite'),
     LLM_API_KEY: optionalString,
-    LLM_BASE_URL: optionalUrl,
-    LLM_SUPPORTS_STRUCTURED_OUTPUTS: booleanValue(false),
 
     AI_TIMEOUT_MS: integerValue(30_000, 1_000, 180_000),
     AI_MAX_RETRIES: integerValue(2, 0, 10),
     AI_CONCURRENCY: integerValue(3, 1, 8),
-    AI_MAX_ANSWER_TOKENS: integerValue(140, 32, 1_000),
-    AI_MAX_VOTE_TOKENS: integerValue(100, 32, 500),
+    AI_MAX_ANSWER_TOKENS: integerValue(1000, 32, 8192),
+    AI_MAX_VOTE_TOKENS: integerValue(500, 32, 8192),
 
     REQUEST_TRACKING_MODE: z.enum(['disabled', 'memory', 'redis']).default('memory'),
     REQUEST_LIMIT: integerValue(200, 1, 10_000_000),
@@ -65,14 +62,6 @@ const envSchema = z
     HTTP_RATE_WINDOW_MS: integerValue(60_000, 1_000, 86_400_000),
   })
   .superRefine((config, context) => {
-    if (config.LLM_PROVIDER === 'openai-compatible' && !config.LLM_BASE_URL) {
-      context.addIssue({
-        code: 'custom',
-        path: ['LLM_BASE_URL'],
-        message: 'LLM_BASE_URL is required for the openai-compatible provider',
-      });
-    }
-
     if (['openai', 'anthropic', 'google'].includes(config.LLM_PROVIDER) && !config.LLM_API_KEY) {
       context.addIssue({
         code: 'custom',

@@ -3,45 +3,75 @@ import { generateText, Output, type LanguageModel } from 'ai';
 import { z } from 'zod';
 
 import type { AppConfig } from '../config/env.js';
-import type { GeneratedVote, GenerateVoteInput, LlmClient } from './types.js';
+import type { 
+  BatchedGeneratedAnswer, 
+  BatchedGeneratedVote, 
+  GenerateAnswersInput, 
+  GenerateVotesInput, 
+  LlmClient 
+} from './types.js';
 
-const generatedVoteSchema = z.strictObject({
+const batchedGeneratedAnswerSchema = z.array(z.strictObject({
+  id: z.number(),
+  answer: z.string().trim().min(1),
+}));
+
+const batchedGeneratedVoteSchema = z.array(z.strictObject({
+  voterId: z.number(),
   candidateKey: z.string().trim().min(1).max(8),
   reason: z.string().trim().min(1).max(240),
-});
+}));
 
-function answerPrompt(question: string, personality: PersonalityInput): string {
-  return [
-    `Question: ${question}`,
-    '',
-    `Answer as ${personality.name}.`,
-    `Personality trait: ${personality.trait}.`,
-    '',
-    'Write exactly two or three complete, concise sentences.',
-    'Answer the question directly and remain fully in character.',
-    'Use polished, grammatically correct English with correct spelling, punctuation, and spacing.',
-    'Proofread the response silently before returning it.',
-    'Return only the final answer.',
-    'Do not mention the prompt, personality instructions, AI policies, or this tournament.',
-  ].join('\n');
-}
-
-function votePrompt(input: GenerateVoteInput): string {
-  const options = input.candidates
-    .map((candidate) => `${candidate.key}: ${candidate.answer}`)
+function batchedAnswerPrompt(input: GenerateAnswersInput): string {
+  const personas = input.personalities
+    .map((p) => `ID: ${p.id}\nName: ${p.name}\nTrait: ${p.trait}`)
     .join('\n\n');
 
   return [
     `Question: ${input.question}`,
     '',
-    `Your answer: ${input.voterAnswer}`,
+    'You are a participant in a highly competitive and provocative AI debate tournament.',
+    'You must generate an answer for each of the following personalities:',
     '',
-    'Other anonymous answers:',
+    personas,
+    '',
+    'For each personality, you MUST fully adopt their persona and write an aggressive, heavily opinionated, and highly distinct answer.',
+    '1. Write exactly two or three complete, concise sentences.',
+    '2. Answer the question directly but twist your response through the absolute extreme of that specific personality\'s trait.',
+    '3. Do not be generic, polite, or balanced. Be sharply opinionated.',
+    '4. Do not mention the prompt, personality instructions, AI policies, or this tournament.',
+    '',
+    'Return a JSON array containing an object for each personality with their "id" and "answer".',
+  ].join('\n');
+}
+
+function batchedVotePrompt(input: GenerateVotesInput): string {
+  const options = input.candidates
+    .map((candidate) => `Candidate Key: ${candidate.key}\nAnswer: ${candidate.answer}`)
+    .join('\n\n');
+    
+  const voters = input.voters
+    .map((voter) => `Voter ID: ${voter.voterId}\nVoter Name: ${voter.voterPersonality?.name || 'Unknown'}\nVoter Trait: ${voter.voterPersonality?.trait || 'None'}\nVoter's Own Answer (do not vote for this): ${voter.voterAnswer}`)
+    .join('\n\n');
+
+  return [
+    `Question: ${input.question}`,
+    '',
+    'You are judging anonymous answers in a fictional AI debate tournament on behalf of multiple voters.',
+    '',
+    'Candidates (Answers to judge):',
     options,
     '',
-    'Choose exactly one candidate whose answer is most effective, insightful, or superior.',
-    'Return the candidate key and one brief, complete reason.',
-    'Never choose yourself; your own answer is not listed.',
+    'Voters (Who you are voting on behalf of):',
+    voters,
+    '',
+    'For each voter:',
+    '1. Evaluate the candidates based on the voter\'s unique worldview and personality trait.',
+    '2. Choose exactly one candidate whose answer is most effective, insightful, or superior according to the voter\'s perspective.',
+    '3. Never choose the voter\'s own answer.',
+    '4. Provide one brief, complete sentence explaining why it aligns with or challenges their perspective.',
+    '',
+    'Return a JSON array containing an object for each voter with "voterId", chosen "candidateKey", and "reason".',
   ].join('\n');
 }
 
@@ -58,15 +88,22 @@ function personalityPrompt(eliminatedName: string, remainingNames: string[]): st
 }
 
 function extractJsonObject(text: string): unknown {
-  const firstBrace = text.indexOf('{');
-  const lastBrace = text.lastIndexOf('}');
+  const firstBracket = Math.min(
+    text.indexOf('{') >= 0 ? text.indexOf('{') : Infinity,
+    text.indexOf('[') >= 0 ? text.indexOf('[') : Infinity
+  );
+  
+  const lastBracket = Math.max(
+    text.lastIndexOf('}'),
+    text.lastIndexOf(']')
+  );
 
-  if (firstBrace < 0 || lastBrace <= firstBrace) {
+  if (firstBracket === Infinity || lastBracket <= firstBracket) {
     return undefined;
   }
 
   try {
-    return JSON.parse(text.slice(firstBrace, lastBrace + 1));
+    return JSON.parse(text.slice(firstBracket, lastBracket + 1));
   } catch {
     return undefined;
   }
@@ -80,107 +117,78 @@ export class AiSdkLlmClient implements LlmClient {
     private readonly languageModel: LanguageModel,
     private readonly config: AppConfig,
   ) {
-    this.provider =
-      config.LLM_PROVIDER === 'openai-compatible' ? config.LLM_PROVIDER_NAME : config.LLM_PROVIDER;
-
+    this.provider = config.LLM_PROVIDER;
     this.model = config.LLM_MODEL;
   }
 
-  public async generateAnswer(question: string, personality: PersonalityInput): Promise<string> {
-    const result = await generateText({
-      model: this.languageModel,
-      system:
-        'You are a participant in a fictional AI debate tournament. Always return a complete and coherent answer.',
-      prompt: answerPrompt(question, personality),
-      maxOutputTokens: this.config.AI_MAX_ANSWER_TOKENS,
-      maxRetries: this.config.AI_MAX_RETRIES,
-      timeout: this.config.AI_TIMEOUT_MS,
-
-      // Gemini 3.6 Flash rejects legacy sampling parameters.
-      // Other provider families may still support them.
-      ...(this.config.LLM_PROVIDER === 'google'
-        ? {}
-        : {
-            temperature: 0.85,
-            topP: 0.9,
-          }),
-    });
-
-    const answer = result.text.trim();
-
-    if (!answer) {
-      throw new Error('The provider returned an empty answer');
-    }
-
-    return answer;
-  }
-
-  public async generateVote(input: GenerateVoteInput): Promise<GeneratedVote> {
-    const canUseNativeStructuredOutput =
-      this.config.LLM_PROVIDER !== 'openai-compatible' ||
-      this.config.LLM_SUPPORTS_STRUCTURED_OUTPUTS;
-
-    if (!canUseNativeStructuredOutput) {
-      return this.generateVoteAsJson(input);
-    }
-
+  public async generateAnswers(input: GenerateAnswersInput): Promise<BatchedGeneratedAnswer[]> {
     try {
       const result = await generateText({
         model: this.languageModel,
-        system: 'You are judging anonymous answers in a fictional AI debate tournament.',
-        prompt: votePrompt(input),
+        prompt: batchedAnswerPrompt(input),
         output: Output.object({
-          schema: generatedVoteSchema,
+          schema: batchedGeneratedAnswerSchema,
         }),
-        maxOutputTokens: this.config.AI_MAX_VOTE_TOKENS,
+        maxOutputTokens: this.config.AI_MAX_ANSWER_TOKENS,
         maxRetries: this.config.AI_MAX_RETRIES,
         timeout: this.config.AI_TIMEOUT_MS,
-
-        ...(this.config.LLM_PROVIDER === 'google'
-          ? {}
-          : {
-              temperature: 0.3,
-            }),
+        temperature: 0.85,
+        topP: 0.9,
       });
 
       return result.output;
     } catch (structuredError) {
-      try {
-        return await this.generateVoteAsJson(input);
-      } catch {
-        throw structuredError;
+      // Fallback for providers struggling with structured output
+      const result = await generateText({
+        model: this.languageModel,
+        system: 'Return only a valid JSON array of objects. Do not wrap in Markdown.',
+        prompt: batchedAnswerPrompt(input),
+        maxOutputTokens: this.config.AI_MAX_ANSWER_TOKENS,
+        maxRetries: Math.min(1, this.config.AI_MAX_RETRIES),
+        timeout: this.config.AI_TIMEOUT_MS,
+        temperature: 0.85,
+      });
+
+      const parsed = batchedGeneratedAnswerSchema.safeParse(extractJsonObject(result.text));
+      if (!parsed.success) {
+        throw new Error('The provider returned an invalid batched answer payload');
       }
+      return parsed.data;
     }
   }
 
-  private async generateVoteAsJson(input: GenerateVoteInput): Promise<GeneratedVote> {
-    const result = await generateText({
-      model: this.languageModel,
-      system: [
-        'Return only valid JSON.',
-        'Use exactly this structure:',
-        '{"candidateKey":"A","reason":"One brief complete sentence."}',
-        'Do not wrap the JSON in Markdown.',
-      ].join('\n'),
-      prompt: votePrompt(input),
-      maxOutputTokens: this.config.AI_MAX_VOTE_TOKENS,
-      maxRetries: Math.min(1, this.config.AI_MAX_RETRIES),
-      timeout: this.config.AI_TIMEOUT_MS,
+  public async generateVotes(input: GenerateVotesInput): Promise<BatchedGeneratedVote[]> {
+    try {
+      const result = await generateText({
+        model: this.languageModel,
+        prompt: batchedVotePrompt(input),
+        output: Output.object({
+          schema: batchedGeneratedVoteSchema,
+        }),
+        maxOutputTokens: this.config.AI_MAX_VOTE_TOKENS,
+        maxRetries: this.config.AI_MAX_RETRIES,
+        timeout: this.config.AI_TIMEOUT_MS,
+        temperature: 0.3,
+      });
 
-      ...(this.config.LLM_PROVIDER === 'google'
-        ? {}
-        : {
-            temperature: 0.2,
-          }),
-    });
+      return result.output;
+    } catch (structuredError) {
+      const result = await generateText({
+        model: this.languageModel,
+        system: 'Return only a valid JSON array of objects. Do not wrap in Markdown.',
+        prompt: batchedVotePrompt(input),
+        maxOutputTokens: this.config.AI_MAX_VOTE_TOKENS,
+        maxRetries: Math.min(1, this.config.AI_MAX_RETRIES),
+        timeout: this.config.AI_TIMEOUT_MS,
+        temperature: 0.2,
+      });
 
-    const parsed = generatedVoteSchema.safeParse(extractJsonObject(result.text));
-
-    if (!parsed.success) {
-      throw new Error('The provider returned an invalid vote payload');
+      const parsed = batchedGeneratedVoteSchema.safeParse(extractJsonObject(result.text));
+      if (!parsed.success) {
+        throw new Error('The provider returned an invalid batched vote payload');
+      }
+      return parsed.data;
     }
-
-    return parsed.data;
   }
 
   public async generatePersonality(

@@ -1,7 +1,6 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModel } from 'ai';
 import type { AppConfig } from '../config/env.js';
 
@@ -23,15 +22,6 @@ export function createLanguageModel(config: AppConfig): LanguageModel {
     case 'google': {
       const provider = createGoogleGenerativeAI({
         apiKey: required(config.LLM_API_KEY, 'LLM_API_KEY'),
-      });
-      return provider(config.LLM_MODEL);
-    }
-    case 'openai-compatible': {
-      const provider = createOpenAICompatible({
-        name: config.LLM_PROVIDER_NAME,
-        baseURL: required(config.LLM_BASE_URL, 'LLM_BASE_URL'),
-        ...(config.LLM_API_KEY ? { apiKey: config.LLM_API_KEY } : {}),
-        supportsStructuredOutputs: config.LLM_SUPPORTS_STRUCTURED_OUTPUTS,
       });
       return provider(config.LLM_MODEL);
     }

@@ -19,7 +19,7 @@ export function GameHeader({ generationNumber, roundInGeneration, onReset }: Gam
       <p className="mb-2 text-xs font-semibold tracking-[0.35em] text-amber-500 uppercase">
         Capitol evolutionary simulation
       </p>
-      <h1 className="arena-title text-4xl font-bold tracking-wider uppercase sm:text-6xl lg:text-7xl">
+      <h1 className="font-['Space_Grotesk',ui-sans-serif,system-ui,sans-serif] bg-gradient-to-b from-[#ffffff_30%] to-amber-500 bg-clip-text text-transparent [text-shadow:0_0_30px_rgba(245,158,11,0.25)] text-4xl font-bold tracking-wider uppercase sm:text-6xl lg:text-7xl">
         AI Hunger Games
       </h1>
       <p className="mt-2 text-sm font-medium tracking-[0.2em] text-amber-200/90 sm:text-base">
@@ -29,14 +29,17 @@ export function GameHeader({ generationNumber, roundInGeneration, onReset }: Gam
       <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
         <Stat label="Generation" value={`Gen #${generationNumber}`} />
         <Stat label="Gen round" value={`${roundInGeneration} / ${ROUNDS_PER_GENERATION}`} />
-        <button
-          type="button"
-          onClick={onReset}
-          className="flex h-14 items-center gap-2 rounded-md border border-amber-500/60 bg-amber-950/50 px-5 text-sm font-semibold tracking-wider text-amber-300 uppercase transition-all duration-200 hover:border-amber-400 hover:bg-amber-900/60 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-        >
-          <RotateCcw aria-hidden="true" size={16} />
-          Reset simulation
-        </button>
+        
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={onReset}
+            className="flex h-14 items-center gap-2 rounded-md border border-amber-500/60 bg-amber-950/50 px-5 text-sm font-semibold tracking-wider text-amber-300 uppercase transition-all duration-200 hover:border-amber-400 hover:bg-amber-900/60 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+          >
+            <RotateCcw aria-hidden="true" size={16} />
+            Reset simulation
+          </button>
+        </div>
       </div>
     </header>
   );

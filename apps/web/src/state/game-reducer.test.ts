@@ -122,6 +122,12 @@ describe('game reducer', () => {
       },
     });
 
+    expect(state.replacementPersonality?.name).toBe('The Synthesizer');
+    // Generation number and personalities list shouldn't be updated yet
+    expect(state.generationNumber).toBe(1);
+
+    state = gameReducer(state, { type: 'nextRound' });
+
     expect(state.generationNumber).toBe(2);
     expect(state.personalities.find((p) => p.id === 9)?.name).toBe('The Synthesizer');
     expect(state.personalities.filter((p) => p.alive)).toHaveLength(8);

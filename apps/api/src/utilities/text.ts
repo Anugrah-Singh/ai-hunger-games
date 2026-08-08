@@ -13,11 +13,17 @@ function normalizeWhitespace(text: string): string {
 }
 
 function normalizePunctuationSpacing(text: string): string {
-  return text
+  let cleaned = text
     .replace(/\s+([,.;:!?])/gu, '$1')
     .replace(/,([^\s\d])/gu, ', $1')
     .replace(/;([^\s])/gu, '; $1')
     .replace(/:([^\s/])/gu, ': $1');
+    
+  // Strip markdown list markers and "Sentence 1:", "Sentence 2:" prefixes
+  cleaned = cleaned.replace(/^\s*(?:[-*]|\d+\.)\s*/gmu, '');
+  cleaned = cleaned.replace(/\*?\s*\*?Sentence \d+:\s*\*?\s*/gmu, '');
+  
+  return cleaned;
 }
 
 function applyKnownCorrections(text: string): string {

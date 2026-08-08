@@ -1,22 +1,33 @@
 import type { PersonalityInput } from '@ai-hunger-games/contracts';
-import type { GenerateVoteInput, GeneratedVote, LlmClient } from './types.js';
+import type { 
+  BatchedGeneratedAnswer, 
+  BatchedGeneratedVote, 
+  GenerateAnswersInput, 
+  GenerateVotesInput, 
+  LlmClient 
+} from './types.js';
 
 export class MockLlmClient implements LlmClient {
   public readonly provider = 'mock';
-  public readonly model = 'deterministic-local-model';
+  public readonly model = 'mock-model';
 
-  public async generateAnswer(question: string, personality: PersonalityInput): Promise<string> {
-    return `${personality.name} considers “${question}” through a ${personality.trait.toLowerCase()} lens. The strongest response should stay clear, useful, and true to that perspective.`;
+  public async generateAnswers(input: GenerateAnswersInput): Promise<BatchedGeneratedAnswer[]> {
+    return input.personalities.map((p) => ({
+      id: p.id,
+      answer: 'This is a mock answer. ' + 'Lorem ipsum '.repeat(10).trim(),
+    }));
   }
 
-  public async generateVote(input: GenerateVoteInput): Promise<GeneratedVote> {
-    const candidate = input.candidates[0];
-    if (!candidate) throw new Error('At least one candidate is required');
-
-    return {
-      candidateKey: candidate.key,
-      reason: 'This answer is the most effective and aligned with my perspective.',
-    };
+  public async generateVotes(input: GenerateVotesInput): Promise<BatchedGeneratedVote[]> {
+    return input.voters.map((v) => {
+      const candidates = input.candidates.filter(c => c.id !== v.voterId);
+      const chosen = candidates[Math.floor(Math.random() * candidates.length)]!;
+      return {
+        voterId: v.voterId,
+        candidateKey: chosen.key,
+        reason: 'This is a mock reason for the mock vote.',
+      };
+    });
   }
 
   public async generatePersonality(

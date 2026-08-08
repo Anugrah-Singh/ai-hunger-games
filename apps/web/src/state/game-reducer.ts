@@ -32,6 +32,7 @@ export function createInitialState(): GameState {
     votes: [],
     tiedIds: [],
     eliminatedId: undefined,
+    replacementPersonality: undefined,
     error: undefined,
   };
 }
@@ -117,16 +118,42 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         error: undefined,
       };
     case 'answersReceived':
-      return { ...state, answers: action.answers, phase: 'reviewAnswers', error: undefined };
+      return {
+        ...state,
+        answers: action.answers,
+        phase:
+          action.answers.length === alivePersonalities(state).length
+            ? 'reviewAnswers'
+            : state.phase,
+        error: undefined,
+      };
     case 'votesRequested':
       return { ...state, votes: [], phase: 'generatingVotes', error: undefined };
     case 'votesReceived':
-      return { ...state, votes: action.votes, phase: 'reviewVotes', error: undefined };
+      return {
+        ...state,
+        votes: action.votes,
+        phase:
+          action.votes.length === alivePersonalities(state).length ? 'reviewVotes' : state.phase,
+        error: undefined,
+      };
     case 'resolveVotes':
       return resolveVotes(state);
     case 'breakTie':
       return state.tiedIds.includes(action.id) ? eliminate(state, action.id) : state;
-    case 'nextRound':
+    case 'nextRound': {
+      let personalities = state.personalities;
+      let nextPersonalityId = state.nextPersonalityId;
+      let generationNumber = state.generationNumber;
+
+      if (state.eliminatedId && state.replacementPersonality) {
+        personalities = state.personalities.map((personality) =>
+          personality.id === state.eliminatedId ? state.replacementPersonality! : personality,
+        );
+        nextPersonalityId = state.nextPersonalityId + 1;
+        generationNumber = state.generationNumber + 1;
+      }
+
       return {
         ...state,
         phase: 'input',
@@ -137,19 +164,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         votes: [],
         tiedIds: [],
         eliminatedId: undefined,
+        replacementPersonality: undefined,
         error: undefined,
-      };
-    case 'personalityReplaced': {
-      const personalities = state.personalities.map((personality) =>
-        personality.id === state.eliminatedId ? action.personality : personality,
-      );
-      return {
-        ...state,
         personalities,
-        nextPersonalityId: state.nextPersonalityId + 1,
-        generationNumber: state.generationNumber + 1,
+        nextPersonalityId,
+        generationNumber,
       };
     }
+    case 'personalityReplaced':
+      return {
+        ...state,
+        replacementPersonality: action.personality,
+      };
     case 'failed':
       return { ...state, phase: action.resumeAt, error: action.message };
     case 'dismissError':

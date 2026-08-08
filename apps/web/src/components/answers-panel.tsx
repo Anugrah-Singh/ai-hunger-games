@@ -22,7 +22,7 @@ export function AnswersPanel({
   const generating = phase === 'generatingAnswers';
 
   return (
-    <section className="arena-panel fade-in-up mt-8 p-5 sm:p-8" aria-live="polite">
+    <section className="border border-zinc-800 bg-gradient-to-b from-zinc-900/95 to-zinc-950/98 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] rounded-lg animate-[fadeInUp_300ms_cubic-bezier(0,0,0.2,1)_both] mt-8 p-5 sm:p-8" aria-live="polite">
       <PanelQuestion question={question} />
 
       <div className="space-y-4">

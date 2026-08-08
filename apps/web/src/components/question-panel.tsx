@@ -9,7 +9,7 @@ interface QuestionPanelProps {
 export function QuestionPanel({ question, onQuestionChange, onSubmit }: QuestionPanelProps) {
   return (
     <section
-      className="control-panel fade-in-up mt-8 p-5 sm:p-8"
+      className="relative border border-amber-900/40 bg-gradient-to-br from-zinc-900/98 to-zinc-950/95 rounded-lg overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[3px] before:bg-gradient-to-r before:from-[#b45309] before:via-amber-500 before:to-[#b45309] animate-[fadeInUp_300ms_cubic-bezier(0,0,0.2,1)_both] mt-8 p-5 sm:p-8"
       aria-labelledby="question-heading"
     >
       <div className="mb-4 flex items-center gap-3">

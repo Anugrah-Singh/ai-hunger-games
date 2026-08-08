@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   answersRequestSchema,
   generatePersonalityRequestSchema,
+  singleVoteRequestSchema,
   votesRequestSchema,
   type AnswersRequest,
   type GeneratePersonalityRequest,
@@ -19,6 +20,8 @@ import { secretsMatch } from '../http/security.js';
 import { AnswerService } from '../services/answer-service.js';
 import { PersonalityService } from '../services/personality-service.js';
 import { VoteService } from '../services/vote-service.js';
+
+
 
 export interface RouteDependencies {
   config: AppConfig;
@@ -38,14 +41,19 @@ function toStatusResponse(status: Awaited<ReturnType<RequestCounter['status']>>)
 }
 
 export function registerRoutes(app: FastifyInstance, dependencies: RouteDependencies): void {
-  const { config, llm, counter } = dependencies;
-  const answers = new AnswerService(llm, config.AI_CONCURRENCY);
-  const votes = new VoteService(llm, config.AI_CONCURRENCY);
-  const personalities = new PersonalityService(llm);
+  const { config, llm: defaultLlm, counter } = dependencies;
+  const defaultAnswers = new AnswerService(defaultLlm, config.AI_CONCURRENCY);
+  const defaultVotes = new VoteService(defaultLlm, config.AI_CONCURRENCY);
+  const defaultPersonalities = new PersonalityService(defaultLlm);
+
+  const getServices = () => {
+    return { answers: defaultAnswers, votes: defaultVotes, personalities: defaultPersonalities };
+  };
 
   app.post('/api/answers', async (request, reply) => {
     const body = parseBody<AnswersRequest>(answersRequestSchema, request.body);
     await consumeQuota(counter, reply);
+    const { answers } = getServices();
     const responses = await answers.generate(body.question, body.personalities);
     return reply.code(200).send({ responses });
   });
@@ -53,8 +61,22 @@ export function registerRoutes(app: FastifyInstance, dependencies: RouteDependen
   app.post('/api/vote', async (request, reply) => {
     const body = parseBody<VotesRequest>(votesRequestSchema, request.body);
     await consumeQuota(counter, reply);
+    const { votes } = getServices();
     const generatedVotes = await votes.generate(body.question, body.responses);
     return reply.code(200).send({ votes: generatedVotes });
+  });
+
+  app.post('/api/vote/single', async (request, reply) => {
+    const body = parseBody(singleVoteRequestSchema, request.body);
+    await consumeQuota(counter, reply);
+    const { votes } = getServices();
+    const generatedVote = await votes.generateSingle(
+      body.question,
+      body.voterId,
+      body.responses,
+      body.voterPersonality,
+    );
+    return reply.code(200).send({ vote: generatedVote });
   });
 
   app.post('/api/generate-personality', async (request, reply) => {
@@ -63,6 +85,7 @@ export function registerRoutes(app: FastifyInstance, dependencies: RouteDependen
       request.body,
     );
     await consumeQuota(counter, reply);
+    const { personalities } = getServices();
     const personality = await personalities.generate(body.eliminatedName, body.remainingNames);
     return reply.code(200).send({ personality });
   });
@@ -79,6 +102,8 @@ export function registerRoutes(app: FastifyInstance, dependencies: RouteDependen
       throw error;
     }
   });
+
+
 
   app.post(
     '/api/reset-counter',
@@ -119,8 +144,8 @@ export function registerRoutes(app: FastifyInstance, dependencies: RouteDependen
       await counter.status();
       return reply.code(200).send({
         status: 'ready',
-        provider: llm.provider,
-        model: llm.model,
+        provider: defaultLlm.provider,
+        model: defaultLlm.model,
       });
     } catch {
       return reply.code(503).send({ status: 'not-ready' });

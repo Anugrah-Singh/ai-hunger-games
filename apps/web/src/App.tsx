@@ -1,5 +1,3 @@
-import { useEffect, useReducer, useRef, useState } from 'react';
-import { api, userMessageFor } from './api/client.js';
 import { AnswersPanel } from './components/answers-panel.js';
 import { Arena } from './components/arena.js';
 import { ErrorBanner } from './components/error-banner.js';
@@ -8,111 +6,22 @@ import { OutcomePanel } from './components/outcome-panel.js';
 import { QuestionPanel } from './components/question-panel.js';
 import { RoundCompletePanel } from './components/round-complete-panel.js';
 import { VotingPanel } from './components/voting-panel.js';
-import { pickTheme } from './data/themes.js';
 import { useElapsedSeconds } from './hooks/use-elapsed-seconds.js';
-import { alivePersonalities, createInitialState, gameReducer } from './state/game-reducer.js';
+import { useGameEngine } from './hooks/useGameEngine.js';
 
 export default function App() {
-  const [state, dispatch] = useReducer(gameReducer, undefined, createInitialState);
-  const [isGeneratingReplacement, setIsGeneratingReplacement] = useState(false);
-  const controllerRef = useRef<AbortController | null>(null);
-  const alive = alivePersonalities(state);
-  const busy = state.phase === 'generatingAnswers' || state.phase === 'generatingVotes';
+  const {
+    state,
+    dispatch,
+    alive,
+    busy,
+    isGeneratingReplacement,
+    askQuestion,
+    beginVoting,
+    reset,
+  } = useGameEngine();
+
   const elapsedSeconds = useElapsedSeconds(busy);
-
-  useEffect(
-    () => () => {
-      controllerRef.current?.abort();
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (state.phase !== 'eliminated' || !state.eliminatedId) return;
-
-    const eliminated = state.personalities.find((p) => p.id === state.eliminatedId);
-    if (!eliminated) return;
-
-    const remainingNames = state.personalities.filter((p) => p.alive).map((p) => p.name);
-
-    setIsGeneratingReplacement(true);
-    const controller = freshController();
-
-    api
-      .generatePersonality({ eliminatedName: eliminated.name, remainingNames }, controller.signal)
-      .then((result) => {
-        const usedAvatars = state.personalities.map((p) => p.theme.avatar);
-        dispatch({
-          type: 'personalityReplaced',
-          personality: {
-            id: state.nextPersonalityId,
-            name: result.personality.name,
-            trait: result.personality.trait,
-            alive: true,
-            theme: pickTheme(usedAvatars),
-          },
-        });
-      })
-      .catch((error) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        console.error('Personality generation failed', { error });
-      })
-      .finally(() => {
-        setIsGeneratingReplacement(false);
-      });
-  }, [state.phase, state.eliminatedId]);
-
-  const freshController = (): AbortController => {
-    controllerRef.current?.abort();
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    return controller;
-  };
-
-  const askQuestion = async (): Promise<void> => {
-    const question = state.question.trim();
-    if (!question || busy) return;
-
-    dispatch({ type: 'answersRequested' });
-    const controller = freshController();
-
-    try {
-      const result = await api.generateAnswers(
-        {
-          question,
-          personalities: alive.map(({ id, name, trait }) => ({ id, name, trait })),
-        },
-        controller.signal,
-      );
-      dispatch({ type: 'answersReceived', answers: result.responses });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      dispatch({ type: 'failed', message: userMessageFor(error), resumeAt: 'input' });
-    }
-  };
-
-  const beginVoting = async (): Promise<void> => {
-    if (state.answers.length !== alive.length || busy) return;
-
-    dispatch({ type: 'votesRequested' });
-    const controller = freshController();
-
-    try {
-      const result = await api.generateVotes(
-        { question: state.question, responses: state.answers },
-        controller.signal,
-      );
-      dispatch({ type: 'votesReceived', votes: result.votes });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      dispatch({ type: 'failed', message: userMessageFor(error), resumeAt: 'reviewAnswers' });
-    }
-  };
-
-  const reset = (): void => {
-    controllerRef.current?.abort();
-    dispatch({ type: 'reset' });
-  };
 
   const eliminated = state.eliminatedId
     ? state.personalities.find((personality) => personality.id === state.eliminatedId)
@@ -121,9 +30,9 @@ export default function App() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-zinc-950 px-4 py-6 text-zinc-100 sm:px-6 sm:py-10">
-      <div className="scanlines pointer-events-none fixed inset-0 opacity-30" aria-hidden="true" />
+      <div className="pointer-events-none fixed inset-0 opacity-30 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(255,255,255,0.02)_3px,rgba(255,255,255,0.02)_5px)] animate-[scanline-drift_0.5s_linear_infinite]" aria-hidden="true" />
       <div
-        className="spotlight pointer-events-none fixed inset-x-0 top-0 mx-auto h-[42rem] max-w-5xl"
+        className="pointer-events-none fixed inset-x-0 top-0 mx-auto h-[42rem] max-w-5xl bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_70%)] blur-[50px]"
         aria-hidden="true"
       />
 
@@ -187,6 +96,7 @@ export default function App() {
         {state.phase === 'eliminated' || state.phase === 'winner' ? (
           <OutcomePanel
             eliminated={state.phase === 'eliminated' ? eliminated : undefined}
+            replacement={state.replacementPersonality}
             winner={winner}
             isGeneratingReplacement={isGeneratingReplacement}
             onNextRound={() => dispatch({ type: 'nextRound' })}

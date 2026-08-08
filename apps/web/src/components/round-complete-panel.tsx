@@ -21,7 +21,7 @@ export function RoundCompletePanel({
   );
 
   return (
-    <section className="arena-panel fade-in-up mt-8 p-5 sm:p-8" aria-live="polite">
+    <section className="border border-zinc-800 bg-gradient-to-b from-zinc-900/95 to-zinc-950/98 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] rounded-lg animate-[fadeInUp_300ms_cubic-bezier(0,0,0.2,1)_both] mt-8 p-5 sm:p-8" aria-live="polite">
       <div className="mb-6 border-l-4 border-amber-500/80 pl-4">
         <div className="text-xs font-semibold tracking-[0.2em] text-amber-400 uppercase">
           Generation Standings — Round {roundInGeneration} of {ROUNDS_PER_GENERATION}

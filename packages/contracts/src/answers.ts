@@ -8,11 +8,11 @@ import {
 
 export const answersRequestSchema = z.strictObject({
   question: questionSchema,
-  personalities: z.array(personalitySchema).min(2).max(8).superRefine(addUniqueIdValidation),
+  personalities: z.array(personalitySchema).min(1).max(8).superRefine(addUniqueIdValidation),
 });
 
 export const answersResponseSchema = z.strictObject({
-  responses: z.array(answerSchema).min(2).max(8),
+  responses: z.array(answerSchema).min(1).max(8),
 });
 
 export type AnswersRequest = z.infer<typeof answersRequestSchema>;
