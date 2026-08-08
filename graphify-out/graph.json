@@ -22,11 +22,7 @@
       {
         "id": "full_stack_flow",
         "label": "Full Stack Application Flow",
-        "nodes": [
-          "apps_web",
-          "apps_api",
-          "packages_contracts"
-        ],
+        "nodes": ["apps_web", "apps_api", "packages_contracts"],
         "relation": "participate_in",
         "confidence": "EXTRACTED",
         "confidence_score": 1.0,
@@ -14420,11 +14416,7 @@
     {
       "id": "full_stack_flow",
       "label": "Full Stack Application Flow",
-      "nodes": [
-        "apps_web",
-        "apps_api",
-        "packages_contracts"
-      ],
+      "nodes": ["apps_web", "apps_api", "packages_contracts"],
       "relation": "participate_in",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,

@@ -1,10 +1,9 @@
-import type { PersonalityInput } from '@ai-hunger-games/contracts';
-import type { 
-  BatchedGeneratedAnswer, 
-  BatchedGeneratedVote, 
-  GenerateAnswersInput, 
-  GenerateVotesInput, 
-  LlmClient 
+import type {
+  BatchedGeneratedAnswer,
+  BatchedGeneratedVote,
+  GenerateAnswersInput,
+  GenerateVotesInput,
+  LlmClient,
 } from './types.js';
 
 export class MockLlmClient implements LlmClient {
@@ -20,7 +19,7 @@ export class MockLlmClient implements LlmClient {
 
   public async generateVotes(input: GenerateVotesInput): Promise<BatchedGeneratedVote[]> {
     return input.voters.map((v) => {
-      const candidates = input.candidates.filter(c => c.id !== v.voterId);
+      const candidates = input.candidates.filter((c) => c.id !== v.voterId);
       const chosen = candidates[Math.floor(Math.random() * candidates.length)]!;
       return {
         voterId: v.voterId,

@@ -1,26 +1,29 @@
-import type { PersonalityInput } from '@ai-hunger-games/contracts';
 import { generateText, Output, type LanguageModel } from 'ai';
 import { z } from 'zod';
 
 import type { AppConfig } from '../config/env.js';
-import type { 
-  BatchedGeneratedAnswer, 
-  BatchedGeneratedVote, 
-  GenerateAnswersInput, 
-  GenerateVotesInput, 
-  LlmClient 
+import type {
+  BatchedGeneratedAnswer,
+  BatchedGeneratedVote,
+  GenerateAnswersInput,
+  GenerateVotesInput,
+  LlmClient,
 } from './types.js';
 
-const batchedGeneratedAnswerSchema = z.array(z.strictObject({
-  id: z.number(),
-  answer: z.string().trim().min(1),
-}));
+const batchedGeneratedAnswerSchema = z.array(
+  z.strictObject({
+    id: z.number(),
+    answer: z.string().trim().min(1),
+  }),
+);
 
-const batchedGeneratedVoteSchema = z.array(z.strictObject({
-  voterId: z.number(),
-  candidateKey: z.string().trim().min(1).max(8),
-  reason: z.string().trim().min(1).max(240),
-}));
+const batchedGeneratedVoteSchema = z.array(
+  z.strictObject({
+    voterId: z.number(),
+    candidateKey: z.string().trim().min(1).max(8),
+    reason: z.string().trim().min(1).max(240),
+  }),
+);
 
 function batchedAnswerPrompt(input: GenerateAnswersInput): string {
   const personas = input.personalities
@@ -37,7 +40,7 @@ function batchedAnswerPrompt(input: GenerateAnswersInput): string {
     '',
     'For each personality, you MUST fully adopt their persona and write an aggressive, heavily opinionated, and highly distinct answer.',
     '1. Write exactly two or three complete, concise sentences.',
-    '2. Answer the question directly but twist your response through the absolute extreme of that specific personality\'s trait.',
+    "2. Answer the question directly but twist your response through the absolute extreme of that specific personality's trait.",
     '3. Do not be generic, polite, or balanced. Be sharply opinionated.',
     '4. Do not mention the prompt, personality instructions, AI policies, or this tournament.',
     '',
@@ -49,9 +52,12 @@ function batchedVotePrompt(input: GenerateVotesInput): string {
   const options = input.candidates
     .map((candidate) => `Candidate Key: ${candidate.key}\nAnswer: ${candidate.answer}`)
     .join('\n\n');
-    
+
   const voters = input.voters
-    .map((voter) => `Voter ID: ${voter.voterId}\nVoter Name: ${voter.voterPersonality?.name || 'Unknown'}\nVoter Trait: ${voter.voterPersonality?.trait || 'None'}\nVoter's Own Answer (do not vote for this): ${voter.voterAnswer}`)
+    .map(
+      (voter) =>
+        `Voter ID: ${voter.voterId}\nVoter Name: ${voter.voterPersonality?.name || 'Unknown'}\nVoter Trait: ${voter.voterPersonality?.trait || 'None'}\nVoter's Own Answer (do not vote for this): ${voter.voterAnswer}`,
+    )
     .join('\n\n');
 
   return [
@@ -66,9 +72,9 @@ function batchedVotePrompt(input: GenerateVotesInput): string {
     voters,
     '',
     'For each voter:',
-    '1. Evaluate the candidates based on the voter\'s unique worldview and personality trait.',
-    '2. Choose exactly one candidate whose answer is most effective, insightful, or superior according to the voter\'s perspective.',
-    '3. Never choose the voter\'s own answer.',
+    "1. Evaluate the candidates based on the voter's unique worldview and personality trait.",
+    "2. Choose exactly one candidate whose answer is most effective, insightful, or superior according to the voter's perspective.",
+    "3. Never choose the voter's own answer.",
     '4. Provide one brief, complete sentence explaining why it aligns with or challenges their perspective.',
     '',
     'Return a JSON array containing an object for each voter with "voterId", chosen "candidateKey", and "reason".',
@@ -90,13 +96,10 @@ function personalityPrompt(eliminatedName: string, remainingNames: string[]): st
 function extractJsonObject(text: string): unknown {
   const firstBracket = Math.min(
     text.indexOf('{') >= 0 ? text.indexOf('{') : Infinity,
-    text.indexOf('[') >= 0 ? text.indexOf('[') : Infinity
+    text.indexOf('[') >= 0 ? text.indexOf('[') : Infinity,
   );
-  
-  const lastBracket = Math.max(
-    text.lastIndexOf('}'),
-    text.lastIndexOf(']')
-  );
+
+  const lastBracket = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
 
   if (firstBracket === Infinity || lastBracket <= firstBracket) {
     return undefined;
@@ -137,7 +140,7 @@ export class AiSdkLlmClient implements LlmClient {
       });
 
       return result.output;
-    } catch (structuredError) {
+    } catch (_structuredError) {
       // Fallback for providers struggling with structured output
       const result = await generateText({
         model: this.languageModel,
@@ -151,7 +154,9 @@ export class AiSdkLlmClient implements LlmClient {
 
       const parsed = batchedGeneratedAnswerSchema.safeParse(extractJsonObject(result.text));
       if (!parsed.success) {
-        throw new Error('The provider returned an invalid batched answer payload');
+        throw new Error('The provider returned an invalid batched answer payload', {
+          cause: _structuredError,
+        });
       }
       return parsed.data;
     }
@@ -172,7 +177,7 @@ export class AiSdkLlmClient implements LlmClient {
       });
 
       return result.output;
-    } catch (structuredError) {
+    } catch (_structuredError) {
       const result = await generateText({
         model: this.languageModel,
         system: 'Return only a valid JSON array of objects. Do not wrap in Markdown.',
@@ -185,7 +190,9 @@ export class AiSdkLlmClient implements LlmClient {
 
       const parsed = batchedGeneratedVoteSchema.safeParse(extractJsonObject(result.text));
       if (!parsed.success) {
-        throw new Error('The provider returned an invalid batched vote payload');
+        throw new Error('The provider returned an invalid batched vote payload', {
+          cause: _structuredError,
+        });
       }
       return parsed.data;
     }

@@ -1,1 +1,7 @@
-{"nodes": [{"id": "readme", "label": "README.md", "file_type": "document", "source_file": "README.md"}], "edges": [], "hyperedges": []}
+{
+  "nodes": [
+    { "id": "readme", "label": "README.md", "file_type": "document", "source_file": "README.md" }
+  ],
+  "edges": [],
+  "hyperedges": []
+}

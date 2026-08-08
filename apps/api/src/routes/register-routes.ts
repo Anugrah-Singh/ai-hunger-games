@@ -21,8 +21,6 @@ import { AnswerService } from '../services/answer-service.js';
 import { PersonalityService } from '../services/personality-service.js';
 import { VoteService } from '../services/vote-service.js';
 
-
-
 export interface RouteDependencies {
   config: AppConfig;
   llm: LlmClient;
@@ -102,8 +100,6 @@ export function registerRoutes(app: FastifyInstance, dependencies: RouteDependen
       throw error;
     }
   });
-
-
 
   app.post(
     '/api/reset-counter',

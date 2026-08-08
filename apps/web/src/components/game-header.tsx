@@ -29,7 +29,7 @@ export function GameHeader({ generationNumber, roundInGeneration, onReset }: Gam
       <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
         <Stat label="Generation" value={`Gen #${generationNumber}`} />
         <Stat label="Gen round" value={`${roundInGeneration} / ${ROUNDS_PER_GENERATION}`} />
-        
+
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"

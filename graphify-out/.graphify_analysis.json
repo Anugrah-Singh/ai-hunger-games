@@ -506,40 +506,15 @@
       "apps_web_src_vite_env_d_importmeta",
       "apps_web_src_vite_env_d_importmetaenv"
     ],
-    "16": [
-      "apps_web_tsconfig",
-      "apps_web_tsconfig_files",
-      "apps_web_tsconfig_references"
-    ],
-    "17": [
-      "scripts_dev",
-      "scripts_dev_children",
-      "scripts_dev_stop"
-    ],
-    "18": [
-      "tsconfig",
-      "tsconfig_files",
-      "tsconfig_references"
-    ],
-    "19": [
-      "apps_web_src_main",
-      "apps_web_src_main_root"
-    ],
-    "20": [
-      "apps_web_index_html"
-    ],
-    "21": [
-      "apps_web_vite_config"
-    ],
-    "22": [
-      "eslint_config"
-    ],
-    "23": [
-      "prettier_config"
-    ],
-    "24": [
-      "readme"
-    ]
+    "16": ["apps_web_tsconfig", "apps_web_tsconfig_files", "apps_web_tsconfig_references"],
+    "17": ["scripts_dev", "scripts_dev_children", "scripts_dev_stop"],
+    "18": ["tsconfig", "tsconfig_files", "tsconfig_references"],
+    "19": ["apps_web_src_main", "apps_web_src_main_root"],
+    "20": ["apps_web_index_html"],
+    "21": ["apps_web_vite_config"],
+    "22": ["eslint_config"],
+    "23": ["prettier_config"],
+    "24": ["readme"]
   },
   "cohesion": {
     "0": 0.06994535519125683,
@@ -624,10 +599,7 @@
     {
       "source": "exclude",
       "target": "node_modules",
-      "source_files": [
-        "packages/contracts/tsconfig.json",
-        "apps/api/tsconfig.json"
-      ],
+      "source_files": ["packages/contracts/tsconfig.json", "apps/api/tsconfig.json"],
       "confidence": "EXTRACTED",
       "relation": "extends",
       "why": "connects across different repos/directories"
@@ -635,10 +607,7 @@
     {
       "source": "BuildAppOptions",
       "target": "AppConfig",
-      "source_files": [
-        "apps/api/src/app.ts",
-        "apps/api/src/config/env.ts"
-      ],
+      "source_files": ["apps/api/src/app.ts", "apps/api/src/config/env.ts"],
       "confidence": "EXTRACTED",
       "relation": "references",
       "why": "bridges separate communities"
@@ -646,10 +615,7 @@
     {
       "source": "BuildAppOptions",
       "target": "RequestCounter",
-      "source_files": [
-        "apps/api/src/app.ts",
-        "apps/api/src/counter/types.ts"
-      ],
+      "source_files": ["apps/api/src/app.ts", "apps/api/src/counter/types.ts"],
       "confidence": "EXTRACTED",
       "relation": "references",
       "why": "bridges separate communities"
@@ -657,10 +623,7 @@
     {
       "source": "buildApp()",
       "target": "registerErrorHandling()",
-      "source_files": [
-        "apps/api/src/app.ts",
-        "apps/api/src/http/error-handler.ts"
-      ],
+      "source_files": ["apps/api/src/app.ts", "apps/api/src/http/error-handler.ts"],
       "confidence": "EXTRACTED",
       "relation": "calls",
       "why": "bridges separate communities"
@@ -668,10 +631,7 @@
     {
       "source": "buildApp()",
       "target": "registerRoutes()",
-      "source_files": [
-        "apps/api/src/app.ts",
-        "apps/api/src/routes/register-routes.ts"
-      ],
+      "source_files": ["apps/api/src/app.ts", "apps/api/src/routes/register-routes.ts"],
       "confidence": "EXTRACTED",
       "relation": "calls",
       "why": "bridges separate communities"

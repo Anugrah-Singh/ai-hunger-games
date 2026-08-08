@@ -1,6 +1,6 @@
 import type { PersonalityTheme } from '../types/game.js';
 
-export const THEME_POOL: PersonalityTheme[] = [
+const THEME_POOL: PersonalityTheme[] = [
   {
     avatar: 'bg-purple-500',
     border: 'border-purple-400',

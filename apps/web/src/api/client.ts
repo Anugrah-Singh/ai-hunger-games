@@ -15,7 +15,7 @@ import {
 } from '@ai-hunger-games/contracts';
 import type { ZodType } from 'zod';
 
-export class ApiClientError extends Error {
+class ApiClientError extends Error {
   public constructor(
     message: string,
     public readonly status?: number,
@@ -41,8 +41,11 @@ async function readJson(response: Response): Promise<unknown> {
 async function request<T>(path: string, init: RequestInit, schema: ZodType<T>): Promise<T> {
   let response: Response;
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(init.headers as Record<string, string>) };
-    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(init.headers as Record<string, string>),
+    };
+
     response = await fetch(`${baseUrl}${path}`, {
       ...init,
       headers,

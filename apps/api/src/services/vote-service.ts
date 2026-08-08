@@ -1,6 +1,5 @@
 import type { Answer, PersonalityInput, Vote } from '@ai-hunger-games/contracts';
-import type { GenerateVotesInput, LlmClient, VoteCandidate } from '../llm/types.js';
-import { mapWithConcurrency } from '../utilities/concurrency.js';
+import type { LlmClient, VoteCandidate } from '../llm/types.js';
 import { normalizeReason } from '../utilities/text.js';
 
 const CANDIDATE_KEYS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -14,7 +13,6 @@ function buildCandidates(responses: Answer[], voterId: number): VoteCandidate[] 
       answer: response.answer,
     }));
 }
-
 
 export class VoteService {
   public constructor(
@@ -67,14 +65,16 @@ export class VoteService {
     if (!voter) throw new Error('Voter not found in responses');
 
     const candidates = buildCandidates(responses, voter.id);
-    
+
     const generatedVotes = await this.llm.generateVotes({
       question,
-      voters: [{
-        voterId: voter.id,
-        voterAnswer: voter.answer,
-        ...(voterPersonality ? { voterPersonality } : {}),
-      }],
+      voters: [
+        {
+          voterId: voter.id,
+          voterAnswer: voter.answer,
+          ...(voterPersonality ? { voterPersonality } : {}),
+        },
+      ],
       candidates,
     });
 

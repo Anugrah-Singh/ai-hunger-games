@@ -1,1 +1,27 @@
-{"0": "Frontend API Client", "1": "Backend Application Logic", "2": "API TypeScript Configuration", "3": "Project Tooling and Dependencies", "4": "Web Frontend Dependencies", "5": "Data Schemas and Validation", "6": "dependencies", "7": "env.ts", "8": "RequestCounter", "9": "compilerOptions", "10": "compilerOptions", "11": "contracts/package.json", "12": "LlmClient Interface", "13": "text.ts", "14": "error-handler.ts", "15": "vite-env.d.ts", "16": "web/tsconfig.json", "17": "dev.mjs", "18": "tsconfig.json", "19": "main.tsx", "20": "apps/web/index.html", "21": "vite.config.ts", "22": "eslint.config.mjs", "23": "prettier.config.mjs", "24": "README.md"}
+{
+  "0": "Frontend API Client",
+  "1": "Backend Application Logic",
+  "2": "API TypeScript Configuration",
+  "3": "Project Tooling and Dependencies",
+  "4": "Web Frontend Dependencies",
+  "5": "Data Schemas and Validation",
+  "6": "dependencies",
+  "7": "env.ts",
+  "8": "RequestCounter",
+  "9": "compilerOptions",
+  "10": "compilerOptions",
+  "11": "contracts/package.json",
+  "12": "LlmClient Interface",
+  "13": "text.ts",
+  "14": "error-handler.ts",
+  "15": "vite-env.d.ts",
+  "16": "web/tsconfig.json",
+  "17": "dev.mjs",
+  "18": "tsconfig.json",
+  "19": "main.tsx",
+  "20": "apps/web/index.html",
+  "21": "vite.config.ts",
+  "22": "eslint.config.mjs",
+  "23": "prettier.config.mjs",
+  "24": "README.md"
+}

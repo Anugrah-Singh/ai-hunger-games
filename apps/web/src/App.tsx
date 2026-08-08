@@ -10,16 +10,8 @@ import { useElapsedSeconds } from './hooks/use-elapsed-seconds.js';
 import { useGameEngine } from './hooks/useGameEngine.js';
 
 export default function App() {
-  const {
-    state,
-    dispatch,
-    alive,
-    busy,
-    isGeneratingReplacement,
-    askQuestion,
-    beginVoting,
-    reset,
-  } = useGameEngine();
+  const { state, dispatch, alive, busy, isGeneratingReplacement, askQuestion, beginVoting, reset } =
+    useGameEngine();
 
   const elapsedSeconds = useElapsedSeconds(busy);
 
@@ -30,7 +22,10 @@ export default function App() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-zinc-950 px-4 py-6 text-zinc-100 sm:px-6 sm:py-10">
-      <div className="pointer-events-none fixed inset-0 opacity-30 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(255,255,255,0.02)_3px,rgba(255,255,255,0.02)_5px)] animate-[scanline-drift_0.5s_linear_infinite]" aria-hidden="true" />
+      <div
+        className="pointer-events-none fixed inset-0 opacity-30 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(255,255,255,0.02)_3px,rgba(255,255,255,0.02)_5px)] animate-[scanline-drift_0.5s_linear_infinite]"
+        aria-hidden="true"
+      />
       <div
         className="pointer-events-none fixed inset-x-0 top-0 mx-auto h-[42rem] max-w-5xl bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.12),transparent_70%)] blur-[50px]"
         aria-hidden="true"

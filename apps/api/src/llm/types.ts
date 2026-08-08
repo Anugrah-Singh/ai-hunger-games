@@ -16,7 +16,7 @@ export interface BatchedGeneratedAnswer {
   answer: string;
 }
 
-export interface VoterInput {
+interface VoterInput {
   voterId: number;
   voterAnswer: string;
   voterPersonality?: PersonalityInput;
