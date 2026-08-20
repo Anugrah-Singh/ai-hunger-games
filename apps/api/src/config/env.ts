@@ -52,10 +52,8 @@ const envSchema = z
     AI_MAX_ANSWER_TOKENS: integerValue(1000, 32, 8192),
     AI_MAX_VOTE_TOKENS: integerValue(500, 32, 8192),
 
-    REQUEST_TRACKING_MODE: z.enum(['disabled', 'memory', 'redis']).default('memory'),
+    REQUEST_TRACKING_MODE: z.enum(['disabled', 'memory']).default('memory'),
     REQUEST_LIMIT: integerValue(200, 1, 10_000_000),
-    REDIS_URL: optionalUrl,
-    COUNTER_FAILURE_MODE: z.enum(['open', 'closed']).default('closed'),
     ADMIN_KEY: optionalString,
 
     HTTP_RATE_LIMIT: integerValue(60, 1, 100_000),
@@ -67,14 +65,6 @@ const envSchema = z
         code: 'custom',
         path: ['LLM_API_KEY'],
         message: `LLM_API_KEY is required for ${config.LLM_PROVIDER}`,
-      });
-    }
-
-    if (config.REQUEST_TRACKING_MODE === 'redis' && !config.REDIS_URL) {
-      context.addIssue({
-        code: 'custom',
-        path: ['REDIS_URL'],
-        message: 'REDIS_URL is required when request tracking uses Redis',
       });
     }
 

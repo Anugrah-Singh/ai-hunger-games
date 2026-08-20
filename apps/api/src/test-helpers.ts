@@ -16,7 +16,6 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     AI_MAX_VOTE_TOKENS: 100,
     REQUEST_TRACKING_MODE: 'memory',
     REQUEST_LIMIT: 200,
-    COUNTER_FAILURE_MODE: 'closed',
     ADMIN_KEY: 'test-admin-key-that-is-long-enough',
     HTTP_RATE_LIMIT: 1_000,
     HTTP_RATE_WINDOW_MS: 60_000,
