@@ -265,13 +265,26 @@ npm run start --workspace @ai-hunger-games/api
 
 Serve `apps/web/dist` through a static host or reverse proxy and set `VITE_API_URL` before building when the API is deployed at a different origin.
 
+## Deployment (Render)
+
+This project includes a fully configured `render.yaml` blueprint for one-click deployment to [Render](https://render.com/).
+
+The blueprint will provision:
+- A Fastify API web service
+- A static React/Vite frontend
+
+To deploy:
+1. Connect your GitHub repository to Render and create a new **Blueprint**.
+2. Render will read `render.yaml` and configure both services.
+3. Configure the `LLM_API_KEY` in the API service environment variables.
+4. Set the `VITE_API_URL` in the frontend environment variables to point to your new API URL.
+5. Add the frontend origin to the `WEB_ORIGINS` environment variable in the API service to allow CORS.
+
 ## Security notes
 
 - Do not expose `ADMIN_KEY` to the browser.
 - Keep provider keys only in the API environment.
 - Configure `WEB_ORIGINS` explicitly in production.
-- Use Redis-backed tracking for multiple API replicas.
-- Choose `COUNTER_FAILURE_MODE=closed` when the global request budget is a hard cost boundary.
 - Health responses intentionally omit API-key and connection details.
 
 ## Licence
